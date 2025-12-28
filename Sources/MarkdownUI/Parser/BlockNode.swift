@@ -2,6 +2,7 @@ import Foundation
 
 enum BlockNode: Hashable {
   case blockquote(children: [BlockNode])
+  case callout(type: String, title: String?, children: [BlockNode])
   case bulletedList(isTight: Bool, items: [RawListItem])
   case numberedList(isTight: Bool, start: Int, items: [RawListItem])
   case taskList(isTight: Bool, items: [RawTaskListItem])
@@ -17,6 +18,8 @@ extension BlockNode {
   var children: [BlockNode] {
     switch self {
     case .blockquote(let children):
+      return children
+    case .callout(_, _, let children):
       return children
     case .bulletedList(_, let items):
       return items.map(\.children).flatMap { $0 }

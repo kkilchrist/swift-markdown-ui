@@ -24,6 +24,7 @@ struct InlineText: View {
           emphasis: self.theme.emphasis,
           strong: self.theme.strong,
           strikethrough: self.theme.strikethrough,
+          highlight: self.theme.highlight,
           link: self.theme.link
         ),
         images: self.inlineImages,

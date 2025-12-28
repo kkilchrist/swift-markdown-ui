@@ -5,6 +5,8 @@ extension BlockNode: View {
     switch self {
     case .blockquote(let children):
       BlockquoteView(children: children)
+    case .callout(let type, let title, let children):
+      CalloutView(type: type, title: title, children: children)
     case .bulletedList(let isTight, let items):
       BulletedListView(isTight: isTight, items: items)
     case .numberedList(let isTight, let start, let items):

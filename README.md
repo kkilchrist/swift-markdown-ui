@@ -20,6 +20,9 @@ Display and customize Markdown text in SwiftUI.
 * [Getting started](#getting-started)
   * [Creating a Markdown view](#creating-a-markdown-view)
   * [Styling Markdown](#styling-markdown)
+* [Obsidian Extensions](#obsidian-extensions)
+  * [Highlight Syntax](#highlight-syntax)
+  * [Callouts](#callouts)
 * [Documentation](#documentation)
   * [Related content](#related-content)
 * [Demo](#demo)
@@ -248,6 +251,105 @@ extension Theme {
     }
     // More block styles...
 }
+```
+
+## Obsidian Extensions
+
+This fork adds support for [Obsidian](https://obsidian.md/)-style markdown extensions.
+
+### Highlight Syntax
+
+You can highlight text using the `==text==` syntax:
+
+```swift
+Markdown {
+  "This is ==highlighted text== in a sentence."
+}
+```
+
+Or use the DSL:
+
+```swift
+Markdown {
+  Paragraph {
+    "This is "
+    Highlight("highlighted text")
+    " in a sentence."
+  }
+}
+```
+
+Customize the highlight style using the theme:
+
+```swift
+Markdown("Some ==highlighted== text")
+  .markdownTextStyle(\.highlight) {
+    BackgroundColor(.yellow.opacity(0.5))
+  }
+```
+
+### Callouts
+
+Callouts are special blockquotes that display with an icon, color, and optional title:
+
+```swift
+Markdown {
+  """
+  > [!note]
+  > This is a note callout.
+
+  > [!warning] Be Careful
+  > This is a warning with a custom title.
+
+  > [!tip]
+  > Tips are displayed in cyan.
+  """
+}
+```
+
+Or use the DSL:
+
+```swift
+Markdown {
+  Callout(.warning, title: "Important") {
+    Paragraph {
+      "This action cannot be undone."
+    }
+  }
+}
+```
+
+#### Supported Callout Types
+
+| Type | Icon | Color |
+|------|------|-------|
+| `note` | pencil | blue |
+| `abstract`, `summary` | doc.text | cyan |
+| `info` | info.circle | blue |
+| `todo` | checkmark.circle | blue |
+| `tip`, `hint`, `important` | lightbulb | cyan |
+| `success`, `check`, `done` | checkmark.circle.fill | green |
+| `question`, `help`, `faq` | questionmark.circle | orange |
+| `warning`, `caution`, `attention` | exclamationmark.triangle | orange |
+| `failure`, `fail`, `missing` | xmark.circle | red |
+| `danger`, `error` | xmark.octagon | red |
+| `bug` | ladybug | red |
+| `example` | list.bullet | purple |
+| `quote`, `cite` | quote.opening | gray |
+
+Customize the callout style using the theme:
+
+```swift
+Markdown(myContent)
+  .markdownBlockStyle(\.callout) { configuration in
+    // Access configuration.type, configuration.title, configuration.label
+    HStack {
+      Image(systemName: configuration.calloutType?.iconName ?? "info.circle")
+      configuration.label
+    }
+    .padding()
+    .background(configuration.calloutType?.color.opacity(0.2) ?? .gray.opacity(0.2))
+  }
 ```
 
 ## Documentation

@@ -7,7 +7,8 @@ extension Array where Element == BlockNode {
     let blocks = UnsafeNode.parseMarkdown(markdown) { document in
       document.children.compactMap(BlockNode.init(unsafeNode:))
     }
-    self.init(blocks ?? .init())
+    // Apply Obsidian markdown extensions (callouts and highlights)
+    self.init((blocks ?? .init()).applyObsidianExtensions())
   }
 
   func renderMarkdown() -> String {
@@ -277,6 +278,19 @@ extension UnsafeNode {
       guard let node = cmark_node_new(CMARK_NODE_BLOCK_QUOTE) else { return nil }
       children.compactMap(UnsafeNode.make).forEach { cmark_node_append_child(node, $0) }
       return node
+    case .callout(let type, let title, let children):
+      // Render callouts as blockquotes with the [!type] syntax preserved
+      guard let node = cmark_node_new(CMARK_NODE_BLOCK_QUOTE) else { return nil }
+      // Create a paragraph with the callout header
+      let headerText = title != nil ? "[!\(type)] \(title!)" : "[!\(type)]"
+      if let headerParagraph = cmark_node_new(CMARK_NODE_PARAGRAPH),
+         let headerTextNode = cmark_node_new(CMARK_NODE_TEXT) {
+        cmark_node_set_literal(headerTextNode, headerText)
+        cmark_node_append_child(headerParagraph, headerTextNode)
+        cmark_node_append_child(node, headerParagraph)
+      }
+      children.compactMap(UnsafeNode.make).forEach { cmark_node_append_child(node, $0) }
+      return node
     case .bulletedList(let isTight, let items):
       guard let node = cmark_node_new(CMARK_NODE_LIST) else { return nil }
       cmark_node_set_list_type(node, CMARK_BULLET_LIST)
@@ -408,6 +422,16 @@ extension UnsafeNode {
       }
       children.compactMap(UnsafeNode.make).forEach { cmark_node_append_child(node, $0) }
       return node
+    case .highlight(let children):
+      // Render highlights as ==text== when converting back to markdown
+      // We wrap the content with == markers using text nodes
+      guard let container = cmark_node_new(CMARK_NODE_TEXT) else { return nil }
+      let innerText = children.compactMap { inline -> String? in
+        if case .text(let text) = inline { return text }
+        return nil
+      }.joined()
+      cmark_node_set_literal(container, "==\(innerText)==")
+      return container
     case .link(let destination, let children):
       guard let node = cmark_node_new(CMARK_NODE_LINK) else { return nil }
       cmark_node_set_url(node, destination)

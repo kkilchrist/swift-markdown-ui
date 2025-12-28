@@ -15,6 +15,8 @@ extension BlockNode {
     switch self {
     case .blockquote(let children):
       return try r(.blockquote(children: children.rewrite(r)))
+    case .callout(let type, let title, let children):
+      return try r(.callout(type: type, title: title, children: children.rewrite(r)))
     case .bulletedList(let isTight, let items):
       return try r(
         .bulletedList(
@@ -52,6 +54,8 @@ extension BlockNode {
     switch self {
     case .blockquote(let children):
       return [.blockquote(children: try children.rewrite(r))]
+    case .callout(let type, let title, let children):
+      return [.callout(type: type, title: title, children: try children.rewrite(r))]
     case .bulletedList(let isTight, let items):
       return [
         .bulletedList(

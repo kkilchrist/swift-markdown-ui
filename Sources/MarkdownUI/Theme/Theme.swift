@@ -115,6 +115,9 @@ public struct Theme: Sendable {
   /// The strikethrough style.
   public var strikethrough: TextStyle = StrikethroughStyle(.single)
 
+  /// The highlight style (for ==text== syntax).
+  public var highlight: TextStyle = BackgroundColor(.yellow.opacity(0.4))
+
   /// The link style.
   public var link: TextStyle = EmptyTextStyle()
 
@@ -164,6 +167,38 @@ public struct Theme: Sendable {
 
   /// The blockquote style.
   public var blockquote = BlockStyle<BlockConfiguration> { $0.label }
+
+  /// The callout style (for Obsidian-style callouts).
+  public var callout = BlockStyle<CalloutConfiguration> { configuration in
+    let calloutType = configuration.calloutType
+    let color = calloutType?.color ?? .gray
+
+    return HStack(alignment: .top, spacing: 8) {
+      Image(systemName: calloutType?.iconName ?? "info.circle")
+        .foregroundColor(color)
+      VStack(alignment: .leading, spacing: 4) {
+        if let title = configuration.title {
+          Text(title)
+            .fontWeight(.semibold)
+            .foregroundColor(color)
+        } else if let calloutType = calloutType {
+          Text(calloutType.rawValue.capitalized)
+            .fontWeight(.semibold)
+            .foregroundColor(color)
+        }
+        configuration.label
+      }
+    }
+    .padding()
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .background(color.opacity(0.1))
+    .overlay(
+      Rectangle()
+        .fill(color)
+        .frame(width: 4),
+      alignment: .leading
+    )
+  }
 
   /// The code block style.
   public var codeBlock = BlockStyle<CodeBlockConfiguration> { $0.label }
@@ -237,6 +272,14 @@ extension Theme {
   public func strikethrough<S: TextStyle>(@TextStyleBuilder strikethrough: () -> S) -> Theme {
     var theme = self
     theme.strikethrough = strikethrough()
+    return theme
+  }
+
+  /// Adds a highlight style to the theme.
+  /// - Parameter highlight: A text style builder that returns the highlight style.
+  public func highlight<S: TextStyle>(@TextStyleBuilder highlight: () -> S) -> Theme {
+    var theme = self
+    theme.highlight = highlight()
     return theme
   }
 
@@ -327,6 +370,16 @@ extension Theme {
   ) -> Theme {
     var theme = self
     theme.blockquote = .init(body: body)
+    return theme
+  }
+
+  /// Adds a callout style to the theme.
+  /// - Parameter body: A view builder that returns a customized callout.
+  public func callout<Body: View>(
+    @ViewBuilder body: @escaping (_ configuration: CalloutConfiguration) -> Body
+  ) -> Theme {
+    var theme = self
+    theme.callout = .init(body: body)
     return theme
   }
 
