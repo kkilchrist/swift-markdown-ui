@@ -34,8 +34,9 @@ extension Unicode.Scalar {
   fileprivate var isStrongRTL: Bool {
     let value = self.value
     return
-      // Hebrew: U+0590-U+05FF
+      // Hebrew: U+0590-U+05FF, Presentation Forms U+FB1D-U+FB4F
       (0x0590...0x05FF).contains(value) ||
+      (0xFB1D...0xFB4F).contains(value) ||
       // Arabic: U+0600-U+06FF
       (0x0600...0x06FF).contains(value) ||
       // Syriac: U+0700-U+074F
