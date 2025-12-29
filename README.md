@@ -118,9 +118,36 @@ Markdown(content)
   }
 ```
 
+## HTML Export
+
+For PDF generation or other HTML-based pipelines, use `renderExtendedHTML()`:
+
+```swift
+let content = MarkdownContent(markdown)
+let html = content.renderExtendedHTML()
+```
+
+This renders proper HTML with:
+- `<mark>` tags for highlights
+- Styled `<div>` elements for callouts with CSS classes
+- All standard markdown elements
+
+Example callout HTML output:
+```html
+<div class="callout callout-warning" style="--callout-color: #f97316;">
+  <div class="callout-header">
+    <span class="callout-icon" data-icon="exclamationmark.triangle"></span>
+    <span class="callout-title">Warning</span>
+  </div>
+  <div class="callout-content">
+    <p>This is important.</p>
+  </div>
+</div>
+```
+
 ## Other Useful Features
 
-MarkdownUI includes a built-in soft break mode that's useful for Obsidian-style line handling:
+MarkdownUI includes a built-in soft break mode:
 
 ```swift
 // Treat soft breaks (single newlines) as line breaks instead of spaces
