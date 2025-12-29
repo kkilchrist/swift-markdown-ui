@@ -61,6 +61,38 @@ public enum CalloutType: String, CaseIterable, Sendable {
     }
   }
 
+  /// A Unicode character suitable for HTML rendering.
+  public var htmlIcon: String {
+    switch self {
+    case .note:
+      return "✏️"
+    case .abstract, .summary:
+      return "📋"
+    case .info:
+      return "ℹ️"
+    case .todo:
+      return "☑️"
+    case .tip, .hint, .important:
+      return "💡"
+    case .success, .check, .done:
+      return "✅"
+    case .question, .help, .faq:
+      return "❓"
+    case .warning, .caution, .attention:
+      return "⚠️"
+    case .failure, .fail, .missing:
+      return "❌"
+    case .danger, .error:
+      return "🛑"
+    case .bug:
+      return "🐛"
+    case .example:
+      return "📝"
+    case .quote, .cite:
+      return "💬"
+    }
+  }
+
   /// The default color for this callout type.
   public var color: Color {
     switch self {

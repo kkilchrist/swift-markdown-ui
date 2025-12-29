@@ -40,8 +40,9 @@ extension ImageFlow {
         continue
       case .lineBreak:
         items.append(.lineBreak)
-      case let .image(source, children):
-        items.append(.image(.init(source: source, alt: children.renderPlainText())))
+      case .image:
+        guard let data = inline.imageData else { return nil }
+        items.append(.image(data))
       case let .link(destination, children) where children.count == 1:
         guard var data = children.first?.imageData else {
           return nil

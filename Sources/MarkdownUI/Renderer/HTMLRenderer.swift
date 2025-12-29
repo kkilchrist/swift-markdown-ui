@@ -19,15 +19,15 @@ extension BlockNode {
 
     case .callout(let type, let title, let children):
       let calloutType = CalloutType(rawValue: type)
-      let color = calloutType?.color.cssValue ?? "gray"
-      let iconName = calloutType?.iconName ?? "info.circle"
+      let color = calloutType?.color.cssValue ?? "#6b7280"
+      let icon = calloutType?.htmlIcon ?? "ℹ️"
       let displayTitle = title ?? type.capitalized
       let content = children.map { $0.renderExtendedHTML() }.joined(separator: "\n")
 
       return """
         <div class="callout callout-\(type)" style="--callout-color: \(color);">
           <div class="callout-header">
-            <span class="callout-icon" data-icon="\(iconName)"></span>
+            <span class="callout-icon">\(icon)</span>
             <span class="callout-title">\(displayTitle.htmlEscaped)</span>
           </div>
           <div class="callout-content">
@@ -186,9 +186,20 @@ extension InlineNode {
       return "<a href=\"\(escapedDest)\">\(children.renderExtendedHTML())</a>"
 
     case .image(let source, let children):
-      let alt = children.renderPlainText().htmlEscaped
+      let fullAlt = children.renderPlainText()
+      let (cleanAlt, maxWidth, maxHeight) = parseHTMLImageDimensions(from: fullAlt)
       let escapedSrc = source.htmlEscaped
-      return "<img src=\"\(escapedSrc)\" alt=\"\(alt)\">"
+
+      var styleAttr = ""
+      if let maxWidth, let maxHeight {
+        styleAttr = " style=\"max-width: \(Int(maxWidth))px; max-height: \(Int(maxHeight))px; object-fit: contain;\""
+      } else if let maxWidth {
+        styleAttr = " style=\"max-width: \(Int(maxWidth))px; height: auto;\""
+      } else if let maxHeight {
+        styleAttr = " style=\"width: auto; max-height: \(Int(maxHeight))px;\""
+      }
+
+      return "<img src=\"\(escapedSrc)\" alt=\"\(cleanAlt.htmlEscaped)\"\(styleAttr)>"
     }
   }
 
@@ -237,6 +248,42 @@ extension String {
       .replacingOccurrences(of: "\"", with: "&quot;")
       .replacingOccurrences(of: "'", with: "&#39;")
   }
+}
+
+// MARK: - Image Dimension Parsing
+
+/// Parses Obsidian-style image dimensions from alt text for HTML rendering.
+private func parseHTMLImageDimensions(from altText: String) -> (cleanAlt: String, maxWidth: Int?, maxHeight: Int?) {
+  let pattern = #"^(.*?)\|(\d+)(?:x(\d+))?$"#
+
+  guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else {
+    return (altText, nil, nil)
+  }
+
+  let nsRange = NSRange(altText.startIndex..., in: altText)
+  guard let match = regex.firstMatch(in: altText, options: [], range: nsRange) else {
+    return (altText, nil, nil)
+  }
+
+  let cleanAlt: String
+  if let range = Range(match.range(at: 1), in: altText) {
+    cleanAlt = String(altText[range])
+  } else {
+    cleanAlt = ""
+  }
+
+  var width: Int? = nil
+  if let range = Range(match.range(at: 2), in: altText) {
+    width = Int(altText[range])
+  }
+
+  var height: Int? = nil
+  if match.range(at: 3).location != NSNotFound,
+     let range = Range(match.range(at: 3), in: altText) {
+    height = Int(altText[range])
+  }
+
+  return (cleanAlt, width, height)
 }
 
 // MARK: - Color CSS Helper

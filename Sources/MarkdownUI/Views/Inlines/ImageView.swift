@@ -22,6 +22,7 @@ struct ImageView: View {
 
   private var label: some View {
     self.imageProvider.makeImage(url: self.url)
+      .imageConstraints(maxWidth: self.data.maxWidth, maxHeight: self.data.maxHeight)
       .link(destination: self.data.destination)
       .accessibilityLabel(self.data.alt)
   }
@@ -60,6 +61,19 @@ extension ImageView {
 extension View {
   fileprivate func link(destination: String?) -> some View {
     self.modifier(LinkModifier(destination: destination))
+  }
+
+  @ViewBuilder
+  fileprivate func imageConstraints(maxWidth: CGFloat?, maxHeight: CGFloat?) -> some View {
+    if let maxWidth, let maxHeight {
+      self.frame(maxWidth: maxWidth, maxHeight: maxHeight)
+    } else if let maxWidth {
+      self.frame(maxWidth: maxWidth)
+    } else if let maxHeight {
+      self.frame(maxHeight: maxHeight)
+    } else {
+      self
+    }
   }
 }
 

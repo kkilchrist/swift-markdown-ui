@@ -136,7 +136,7 @@ Example callout HTML output:
 ```html
 <div class="callout callout-warning" style="--callout-color: #f97316;">
   <div class="callout-header">
-    <span class="callout-icon" data-icon="exclamationmark.triangle"></span>
+    <span class="callout-icon">⚠️</span>
     <span class="callout-title">Warning</span>
   </div>
   <div class="callout-content">
