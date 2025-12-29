@@ -264,15 +264,48 @@ extension Array where Element == BlockNode {
 }
 
 /// Attempts to parse a blockquote's children as a callout.
-/// Returns a .callout node if the blockquote starts with [!type], otherwise nil.
+/// Returns a .callout node if the blockquote starts with [!type] (Obsidian) or **Type** (GitHub), otherwise nil.
 private func parseCallout(from children: [BlockNode]) -> BlockNode? {
   guard let firstChild = children.first,
         case .paragraph(let inlines) = firstChild,
-        let firstInline = inlines.first,
-        case .text(let text) = firstInline else {
+        let firstInline = inlines.first else {
     return nil
   }
 
+  // Try Obsidian-style first: [!type] or [!type] Optional Title
+  if case .text(let text) = firstInline {
+    if let result = parseObsidianCallout(text: text, inlines: inlines, children: children) {
+      return result
+    }
+  }
+
+  // Try GitHub-style: **Note**, **Warning**, etc.
+  if let result = parseGitHubCallout(inlines: inlines, children: children) {
+    return result
+  }
+
+  return nil
+}
+
+/// Callout types recognized for GitHub-style parsing (case-insensitive matching).
+/// Includes all CalloutType values to provide parity with Obsidian-style callouts.
+private let gitHubCalloutTypes: Set<String> = [
+  // Info types
+  "note", "abstract", "summary", "info", "todo",
+  // Positive types
+  "tip", "hint", "important", "success", "check", "done",
+  // Question types
+  "question", "help", "faq",
+  // Warning types
+  "warning", "caution", "attention",
+  // Error types
+  "failure", "fail", "missing", "danger", "error", "bug",
+  // Other types
+  "example", "quote", "cite"
+]
+
+/// Parses Obsidian-style callouts: [!type] or [!type] Optional Title
+private func parseObsidianCallout(text: String, inlines: [InlineNode], children: [BlockNode]) -> BlockNode? {
   // Pattern: [!type] or [!type] Optional Title
   // The type can contain letters, numbers, hyphens, and underscores
   let pattern = #"^\[!([a-zA-Z0-9_-]+)\](?:\s+(.+))?"#
@@ -330,6 +363,65 @@ private func parseCallout(from children: [BlockNode]) -> BlockNode? {
   modifiedChildren = modifiedChildren.applyCalloutSyntax()
 
   return .callout(type: calloutType, title: title, children: modifiedChildren)
+}
+
+/// Parses GitHub-style callouts: > **Note**, > **Warning**, etc.
+/// GitHub format: The first element is a strong (bold) containing just the type name
+private func parseGitHubCallout(inlines: [InlineNode], children: [BlockNode]) -> BlockNode? {
+  guard let firstInline = inlines.first,
+        case .strong(let strongChildren) = firstInline,
+        strongChildren.count == 1,
+        case .text(let typeText) = strongChildren.first else {
+    return nil
+  }
+
+  // Check if this is a recognized GitHub callout type
+  let calloutType = typeText.trimmingCharacters(in: .whitespaces).lowercased()
+  guard gitHubCalloutTypes.contains(calloutType) else {
+    return nil
+  }
+
+  // Process the remaining content after the **Type** marker
+  var modifiedChildren = children
+
+  if inlines.count == 1 {
+    // The entire first paragraph was just the **Type** marker
+    modifiedChildren.removeFirst()
+  } else {
+    // Remove the **Type** marker and clean up leading whitespace/breaks
+    var newInlines = Array(inlines.dropFirst())
+
+    // Clean up leading soft breaks and whitespace
+    while let first = newInlines.first {
+      if case .softBreak = first {
+        newInlines.removeFirst()
+      } else if case .text(let t) = first {
+        let leadingTrimmed = t.replacingOccurrences(of: "^\\s+", with: "", options: .regularExpression)
+        if leadingTrimmed.isEmpty {
+          newInlines.removeFirst()
+        } else if t != leadingTrimmed {
+          // Replace with version that has leading whitespace removed (preserve trailing)
+          newInlines[0] = .text(leadingTrimmed)
+          break
+        } else {
+          break
+        }
+      } else {
+        break
+      }
+    }
+
+    if newInlines.isEmpty {
+      modifiedChildren.removeFirst()
+    } else {
+      modifiedChildren[0] = .paragraph(content: newInlines)
+    }
+  }
+
+  // Recursively process any nested callouts in the content
+  modifiedChildren = modifiedChildren.applyCalloutSyntax()
+
+  return .callout(type: calloutType, title: nil, children: modifiedChildren)
 }
 
 // MARK: - Combined Extension Application
