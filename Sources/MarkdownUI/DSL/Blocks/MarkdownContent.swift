@@ -113,4 +113,15 @@ public struct MarkdownContent: Equatable, MarkdownContentProtocol {
   public func renderHTML() -> String {
     self.blocks.renderHTML()
   }
+
+  /// Renders this Markdown content value as HTML with full support for extended markdown syntax.
+  ///
+  /// This method produces HTML that properly handles:
+  /// - Highlight syntax (`==text==`) as `<mark>` tags
+  /// - Callout blocks (`> [!type]`) as styled `<div>` elements
+  ///
+  /// Use this method for PDF export or other HTML-based rendering pipelines.
+  public func renderExtendedHTML() -> String {
+    self.blocks.renderExtendedHTML()
+  }
 }
