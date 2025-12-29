@@ -2,7 +2,35 @@ import SwiftUI
 
 extension BlockNode: View {
   var body: some View {
-    switch self {
+    DirectionalBlockView(block: self)
+  }
+}
+
+/// A wrapper view that applies the correct layout direction to a block based on its content.
+private struct DirectionalBlockView: View {
+  @Environment(\.markdownTextDirectionMode) private var directionMode
+
+  let block: BlockNode
+
+  var body: some View {
+    blockContent
+      .environment(\.layoutDirection, resolvedLayoutDirection)
+  }
+
+  private var resolvedLayoutDirection: LayoutDirection {
+    switch directionMode {
+    case .automatic:
+      return block.textDirection == .rightToLeft ? .rightToLeft : .leftToRight
+    case .leftToRight:
+      return .leftToRight
+    case .rightToLeft:
+      return .rightToLeft
+    }
+  }
+
+  @ViewBuilder
+  private var blockContent: some View {
+    switch block {
     case .blockquote(let children):
       BlockquoteView(children: children)
     case .callout(let type, let title, let children):
