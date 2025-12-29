@@ -10,12 +10,17 @@ extension Array where Element == BlockNode {
 }
 
 extension BlockNode {
+  /// Returns the HTML `dir` attribute for this block based on text direction.
+  private var htmlDirAttribute: String {
+    textDirection == .rightToLeft ? " dir=\"rtl\"" : ""
+  }
+
   /// Renders this block as HTML with full support for extended markdown syntax.
   func renderExtendedHTML() -> String {
     switch self {
     case .blockquote(let children):
       let content = children.map { $0.renderExtendedHTML() }.joined(separator: "\n")
-      return "<blockquote>\n\(content)\n</blockquote>"
+      return "<blockquote\(htmlDirAttribute)>\n\(content)\n</blockquote>"
 
     case .callout(let type, let title, let children):
       let calloutType = CalloutType(rawValue: type)
@@ -25,7 +30,7 @@ extension BlockNode {
       let content = children.map { $0.renderExtendedHTML() }.joined(separator: "\n")
 
       return """
-        <div class="callout callout-\(type)" style="--callout-color: \(color);">
+        <div class="callout callout-\(type)"\(htmlDirAttribute) style="--callout-color: \(color);">
           <div class="callout-header">
             <span class="callout-icon">\(icon)</span>
             <span class="callout-title">\(displayTitle.htmlEscaped)</span>
@@ -43,7 +48,7 @@ extension BlockNode {
           : item.children.map { $0.renderExtendedHTML() }.joined(separator: "\n")
         return "<li>\(content)</li>"
       }.joined(separator: "\n")
-      return "<ul>\n\(listItems)\n</ul>"
+      return "<ul\(htmlDirAttribute)>\n\(listItems)\n</ul>"
 
     case .numberedList(let isTight, let start, let items):
       let startAttr = start != 1 ? " start=\"\(start)\"" : ""
@@ -53,7 +58,7 @@ extension BlockNode {
           : item.children.map { $0.renderExtendedHTML() }.joined(separator: "\n")
         return "<li>\(content)</li>"
       }.joined(separator: "\n")
-      return "<ol\(startAttr)>\n\(listItems)\n</ol>"
+      return "<ol\(startAttr)\(htmlDirAttribute)>\n\(listItems)\n</ol>"
 
     case .taskList(let isTight, let items):
       let listItems = items.map { item -> String in
@@ -65,7 +70,7 @@ extension BlockNode {
           : item.children.map { $0.renderExtendedHTML() }.joined(separator: "\n")
         return "<li class=\"task-list-item\">\(checkbox) \(content)</li>"
       }.joined(separator: "\n")
-      return "<ul class=\"task-list\">\n\(listItems)\n</ul>"
+      return "<ul class=\"task-list\"\(htmlDirAttribute)>\n\(listItems)\n</ul>"
 
     case .codeBlock(let fenceInfo, let content):
       let languageClass = fenceInfo.map { " class=\"language-\($0)\"" } ?? ""
@@ -77,18 +82,18 @@ extension BlockNode {
 
     case .paragraph(let content):
       let inlineHTML = content.renderExtendedHTML()
-      return "<p>\(inlineHTML)</p>"
+      return "<p\(htmlDirAttribute)>\(inlineHTML)</p>"
 
     case .heading(let level, let content):
       let tag = "h\(min(max(level, 1), 6))"
       let inlineHTML = content.renderExtendedHTML()
       let id = content.renderPlainText().kebabCased()
-      return "<\(tag) id=\"\(id)\">\(inlineHTML)</\(tag)>"
+      return "<\(tag) id=\"\(id)\"\(htmlDirAttribute)>\(inlineHTML)</\(tag)>"
 
     case .table(let columnAlignments, let rows):
       guard !rows.isEmpty else { return "" }
 
-      var html = "<table>\n"
+      var html = "<table\(htmlDirAttribute)>\n"
 
       // Header row
       if let headerRow = rows.first {
