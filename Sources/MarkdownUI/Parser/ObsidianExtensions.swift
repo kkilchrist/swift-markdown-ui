@@ -328,8 +328,9 @@ private func parseObsidianCallout(text: String, inlines: [InlineNode], children:
   var modifiedChildren = children
 
   // Get the text after [!type] and optional title on the first line
-  let matchEndIndex = text.index(text.startIndex, offsetBy: match.range.length)
-  let remainingFirstLineText = String(text[matchEndIndex...]).trimmingCharacters(in: .whitespaces)
+  // Use proper NSRange to String.Index conversion to handle complex Unicode (Thai, etc.)
+  guard let matchRange = Range(match.range, in: text) else { return nil }
+  let remainingFirstLineText = String(text[matchRange.upperBound...]).trimmingCharacters(in: .whitespaces)
 
   if remainingFirstLineText.isEmpty && inlines.count == 1 {
     // The entire first paragraph was just the callout marker

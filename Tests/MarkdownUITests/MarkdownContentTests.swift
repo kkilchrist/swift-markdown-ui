@@ -423,4 +423,132 @@ final class MarkdownContentTests: XCTestCase {
     )
     XCTAssertEqual(markdown, content.renderMarkdown())
   }
+
+  func testCallout() {
+    // given
+    let markdown = """
+      > [!note]
+      > Hello world
+      """
+
+    // when
+    let content = MarkdownContent(markdown)
+
+    // then
+    XCTAssertEqual(
+      MarkdownContent {
+        Callout(.note) {
+          "Hello world"
+        }
+      },
+      content
+    )
+  }
+
+  func testCalloutWithTitle() {
+    // given
+    let markdown = """
+      > [!warning] Be Careful
+      > This is important
+      """
+
+    // when
+    let content = MarkdownContent(markdown)
+
+    // then
+    XCTAssertEqual(
+      MarkdownContent {
+        Callout(.warning, title: "Be Careful") {
+          "This is important"
+        }
+      },
+      content
+    )
+  }
+
+  func testCalloutWithThaiText() {
+    // Regression test for Unicode handling in callout parsing.
+    // Thai script uses multi-codepoint grapheme clusters that previously
+    // caused crashes due to incorrect NSRange to String.Index conversion.
+
+    // given
+    let markdown = """
+      > [!note] หมายเหตุ
+      > นี่คือข้อความภาษาไทย
+      """
+
+    // when
+    let content = MarkdownContent(markdown)
+
+    // then
+    XCTAssertEqual(
+      MarkdownContent {
+        Callout(.note, title: "หมายเหตุ") {
+          "นี่คือข้อความภาษาไทย"
+        }
+      },
+      content
+    )
+  }
+
+  func testCalloutWithComplexUnicode() {
+    // Test various complex Unicode scripts that have multi-codepoint grapheme clusters
+
+    // given - Arabic text
+    let arabicMarkdown = """
+      > [!note] ملاحظة
+      > هذا نص عربي
+      """
+
+    // when
+    let arabicContent = MarkdownContent(arabicMarkdown)
+
+    // then
+    XCTAssertEqual(
+      MarkdownContent {
+        Callout(.note, title: "ملاحظة") {
+          "هذا نص عربي"
+        }
+      },
+      arabicContent
+    )
+
+    // given - Hindi text with combining marks
+    let hindiMarkdown = """
+      > [!tip] सुझाव
+      > यह हिंदी पाठ है
+      """
+
+    // when
+    let hindiContent = MarkdownContent(hindiMarkdown)
+
+    // then
+    XCTAssertEqual(
+      MarkdownContent {
+        Callout(.tip, title: "सुझाव") {
+          "यह हिंदी पाठ है"
+        }
+      },
+      hindiContent
+    )
+
+    // given - Emoji with ZWJ sequences
+    let emojiMarkdown = """
+      > [!info] 👨‍👩‍👧‍👦 Family
+      > Content with emoji 🎉
+      """
+
+    // when
+    let emojiContent = MarkdownContent(emojiMarkdown)
+
+    // then
+    XCTAssertEqual(
+      MarkdownContent {
+        Callout(.info, title: "👨‍👩‍👧‍👦 Family") {
+          "Content with emoji 🎉"
+        }
+      },
+      emojiContent
+    )
+  }
 }
