@@ -65,15 +65,74 @@ extension View {
 
   @ViewBuilder
   fileprivate func imageConstraints(maxWidth: CGFloat?, maxHeight: CGFloat?) -> some View {
-    if let maxWidth, let maxHeight {
-      self.frame(maxWidth: maxWidth, maxHeight: maxHeight)
-    } else if let maxWidth {
-      self.frame(maxWidth: maxWidth)
-    } else if let maxHeight {
-      self.frame(maxHeight: maxHeight)
+    if maxWidth != nil || maxHeight != nil {
+      ImageConstraintContainer(maxWidth: maxWidth, maxHeight: maxHeight) {
+        self
+      }
     } else {
       self
     }
+  }
+}
+
+/// A container that enforces max width/height constraints on its content
+private struct ImageConstraintContainer<Content: View>: View {
+  let maxWidth: CGFloat?
+  let maxHeight: CGFloat?
+  let content: Content
+
+  init(maxWidth: CGFloat?, maxHeight: CGFloat?, @ViewBuilder content: () -> Content) {
+    self.maxWidth = maxWidth
+    self.maxHeight = maxHeight
+    self.content = content()
+  }
+
+  var body: some View {
+    if #available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *) {
+      ConstrainedImageLayout(maxWidth: maxWidth, maxHeight: maxHeight) {
+        content
+      }
+    } else {
+      // Fallback for older OS - use GeometryReader approach
+      GeometryReader { proxy in
+        let constrainedWidth = maxWidth.map { min($0, proxy.size.width) } ?? proxy.size.width
+        content
+          .frame(maxWidth: constrainedWidth, maxHeight: maxHeight)
+      }
+      .frame(maxWidth: maxWidth, maxHeight: maxHeight)
+    }
+  }
+}
+
+@available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
+private struct ConstrainedImageLayout: Layout {
+  let maxWidth: CGFloat?
+  let maxHeight: CGFloat?
+
+  func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+    guard let view = subviews.first else { return .zero }
+
+    // Constrain the proposal before passing to child
+    let constrainedWidth = min(proposal.width ?? .infinity, maxWidth ?? .infinity)
+    let constrainedHeight = min(proposal.height ?? .infinity, maxHeight ?? .infinity)
+    let constrainedProposal = ProposedViewSize(width: constrainedWidth, height: constrainedHeight)
+
+    var size = view.sizeThatFits(constrainedProposal)
+
+    // Also clamp the result
+    if let maxWidth, size.width > maxWidth {
+      size.width = maxWidth
+    }
+    if let maxHeight, size.height > maxHeight {
+      size.height = maxHeight
+    }
+
+    return size
+  }
+
+  func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+    guard let view = subviews.first else { return }
+    view.place(at: bounds.origin, proposal: .init(bounds.size))
   }
 }
 
