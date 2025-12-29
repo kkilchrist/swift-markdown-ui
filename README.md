@@ -147,6 +147,35 @@ Example callout HTML output:
 
 ## Other Useful Features
 
+### RTL Support
+
+MarkdownUI automatically detects text direction per-block using the Unicode Bidirectional Algorithm. Arabic, Hebrew, and other RTL scripts are detected and rendered with proper layout direction—blockquote borders, list markers, and table alignment all flip appropriately.
+
+```swift
+// Automatic per-block detection (default)
+Markdown("""
+# English Heading
+This is an English paragraph.
+
+# عنوان عربي
+هذه فقرة عربية.
+""")
+```
+
+Override the automatic detection when needed:
+
+```swift
+// Force RTL for entire document
+Markdown(content)
+  .markdownTextDirection(.rightToLeft)
+
+// Force LTR (useful for code-heavy RTL documents)
+Markdown(content)
+  .markdownTextDirection(.leftToRight)
+```
+
+### Soft Break Mode
+
 MarkdownUI includes a built-in soft break mode:
 
 ```swift
