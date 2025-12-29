@@ -8,10 +8,12 @@ This is a fork of [gonzalezreal/swift-markdown-ui](https://github.com/gonzalezre
 
 ## Why This Fork?
 
-The upstream MarkdownUI library is in [maintenance mode](https://github.com/gonzalezreal/swift-markdown-ui/discussions/437). Rather than wait for new features or maintain complex preprocessing workarounds, this fork adds minimal, focused extensions to support Obsidian-flavored markdown:
+The upstream MarkdownUI library is in [maintenance mode](https://github.com/gonzalezreal/swift-markdown-ui/discussions/437). Rather than wait for new features or maintain complex preprocessing workarounds, this fork adds:
 
-- **Highlight syntax** (`==highlighted text==`)
-- **Callout blocks** (`> [!note]`, `> [!warning]`, etc.)
+- **Highlight syntax** (`==highlighted text==`) — Obsidian-style
+- **Callout blocks** (`> [!note]`, `> [!warning]`, etc.) — Obsidian-style
+- **Per-block RTL support** — automatic text direction detection
+- **HTML export** — `renderExtendedHTML()` for highlights and callouts
 
 These extensions integrate cleanly with MarkdownUI's existing theming system and require no preprocessing of your markdown content.
 
@@ -145,11 +147,9 @@ Example callout HTML output:
 </div>
 ```
 
-## Other Useful Features
+## RTL Support
 
-### RTL Support
-
-MarkdownUI automatically detects text direction per-block using the Unicode Bidirectional Algorithm. Arabic, Hebrew, and other RTL scripts are detected and rendered with proper layout direction—blockquote borders, list markers, and table alignment all flip appropriately.
+This fork automatically detects text direction per-block using the Unicode Bidirectional Algorithm. Arabic, Hebrew, and other RTL scripts are detected and rendered with proper layout direction—blockquote borders, list markers, and table alignment all flip appropriately.
 
 ```swift
 // Automatic per-block detection (default)
@@ -174,9 +174,13 @@ Markdown(content)
   .markdownTextDirection(.leftToRight)
 ```
 
-### Soft Break Mode
+---
 
-MarkdownUI includes a built-in soft break mode:
+## Original MarkdownUI Documentation
+
+The sections below are from the original MarkdownUI library.
+
+### Soft Break Mode
 
 ```swift
 // Treat soft breaks (single newlines) as line breaks instead of spaces
@@ -185,12 +189,6 @@ Markdown(content)
 ```
 
 This eliminates the need for preprocessing markdown to add trailing spaces for line breaks.
-
----
-
-## Original MarkdownUI Documentation
-
-The sections below are from the original MarkdownUI library.
 
 ### Overview
 
