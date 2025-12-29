@@ -1,5 +1,153 @@
 import Foundation
 
+// MARK: - Image Dimension Protection
+
+/// Placeholder character used to protect | in image dimensions from table parsing.
+/// Using Unicode Private Use Area character U+E000.
+private let imageDimensionPlaceholder = "\u{E000}"
+
+extension String {
+  /// Protects image dimension syntax from the table parser by replacing | with a placeholder.
+  /// Returns the modified string and whether any replacements were made.
+  ///
+  /// Matches patterns like: ![alt|100](url) or ![alt|100x200](url)
+  func protectingImageDimensions() -> (result: String, hasImageDimensions: Bool) {
+    // Pattern matches ![...](...)  where the alt text contains |
+    // We need to be careful to match balanced brackets
+    let pattern = #"!\[([^\]]*\|[^\]]*)\]\(([^)]+)\)"#
+
+    guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else {
+      return (self, false)
+    }
+
+    var result = self
+    var hasReplacements = false
+    let nsRange = NSRange(self.startIndex..., in: self)
+
+    // Process matches in reverse order to maintain correct indices
+    let matches = regex.matches(in: self, options: [], range: nsRange).reversed()
+
+    for match in matches {
+      guard let fullRange = Range(match.range, in: result),
+            let altRange = Range(match.range(at: 1), in: result),
+            let urlRange = Range(match.range(at: 2), in: result) else { continue }
+
+      let altText = String(result[altRange])
+      let url = String(result[urlRange])
+
+      // Replace | with placeholder in alt text only
+      let protectedAlt = altText.replacingOccurrences(of: "|", with: imageDimensionPlaceholder)
+      let replacement = "![\(protectedAlt)](\(url))"
+
+      result.replaceSubrange(fullRange, with: replacement)
+      hasReplacements = true
+    }
+
+    return (result, hasReplacements)
+  }
+}
+
+extension Array where Element == BlockNode {
+  /// Restores image dimension placeholders back to | characters.
+  func restoringImageDimensions() -> [BlockNode] {
+    self.map { block in
+      block.restoringImageDimensions()
+    }
+  }
+}
+
+extension BlockNode {
+  /// Restores image dimension placeholders in this block.
+  fileprivate func restoringImageDimensions() -> BlockNode {
+    switch self {
+    case .blockquote(let children):
+      return .blockquote(children: children.restoringImageDimensions())
+
+    case .callout(let type, let title, let children):
+      return .callout(type: type, title: title, children: children.restoringImageDimensions())
+
+    case .bulletedList(let isTight, let items):
+      return .bulletedList(
+        isTight: isTight,
+        items: items.map { RawListItem(children: $0.children.restoringImageDimensions()) }
+      )
+
+    case .numberedList(let isTight, let start, let items):
+      return .numberedList(
+        isTight: isTight,
+        start: start,
+        items: items.map { RawListItem(children: $0.children.restoringImageDimensions()) }
+      )
+
+    case .taskList(let isTight, let items):
+      return .taskList(
+        isTight: isTight,
+        items: items.map {
+          RawTaskListItem(isCompleted: $0.isCompleted, children: $0.children.restoringImageDimensions())
+        }
+      )
+
+    case .paragraph(let content):
+      return .paragraph(content: content.restoringImageDimensions())
+
+    case .heading(let level, let content):
+      return .heading(level: level, content: content.restoringImageDimensions())
+
+    case .table(let columnAlignments, let rows):
+      return .table(
+        columnAlignments: columnAlignments,
+        rows: rows.map { row in
+          RawTableRow(cells: row.cells.map { cell in
+            RawTableCell(content: cell.content.restoringImageDimensions())
+          })
+        }
+      )
+
+    default:
+      return self
+    }
+  }
+}
+
+extension Array where Element == InlineNode {
+  /// Restores image dimension placeholders in inline nodes.
+  fileprivate func restoringImageDimensions() -> [InlineNode] {
+    self.map { $0.restoringImageDimensions() }
+  }
+}
+
+extension InlineNode {
+  /// Restores image dimension placeholders in this inline node.
+  fileprivate func restoringImageDimensions() -> InlineNode {
+    switch self {
+    case .text(let content):
+      return .text(content.replacingOccurrences(of: imageDimensionPlaceholder, with: "|"))
+
+    case .image(let source, let children):
+      // Restore | in the alt text (children)
+      return .image(source: source, children: children.restoringImageDimensions())
+
+    case .emphasis(let children):
+      return .emphasis(children: children.restoringImageDimensions())
+
+    case .strong(let children):
+      return .strong(children: children.restoringImageDimensions())
+
+    case .strikethrough(let children):
+      return .strikethrough(children: children.restoringImageDimensions())
+
+    case .highlight(let children):
+      return .highlight(children: children.restoringImageDimensions())
+
+    case .link(let destination, let children):
+      return .link(destination: destination, children: children.restoringImageDimensions())
+
+    default:
+      return self
+    }
+  }
+}
+
 // MARK: - Highlight Syntax (==text==)
 
 extension Array where Element == InlineNode {

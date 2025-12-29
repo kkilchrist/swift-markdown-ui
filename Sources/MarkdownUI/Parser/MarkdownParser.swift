@@ -4,11 +4,23 @@ import Foundation
 
 extension Array where Element == BlockNode {
   init(markdown: String) {
-    let blocks = UnsafeNode.parseMarkdown(markdown) { document in
+    // Preprocess: protect image dimension syntax from table parser
+    // Replace | inside ![alt|dimensions](url) with a placeholder before cmark parsing
+    let (preprocessed, hasImageDimensions) = markdown.protectingImageDimensions()
+
+    let blocks = UnsafeNode.parseMarkdown(preprocessed) { document in
       document.children.compactMap(BlockNode.init(unsafeNode:))
     }
+
     // Apply Obsidian markdown extensions (callouts and highlights)
-    self.init((blocks ?? .init()).applyObsidianExtensions())
+    var result = (blocks ?? .init()).applyObsidianExtensions()
+
+    // Restore image dimension placeholders if we modified any
+    if hasImageDimensions {
+      result = result.restoringImageDimensions()
+    }
+
+    self.init(result)
   }
 
   func renderMarkdown() -> String {
