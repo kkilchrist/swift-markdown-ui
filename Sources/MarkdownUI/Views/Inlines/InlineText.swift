@@ -17,6 +17,12 @@ struct InlineText: View {
 
   var body: some View {
     TextStyleAttributesReader { attributes in
+      let _ = Self.debugSoftBreak(
+        mode: self.softBreakMode,
+        spacing: self.theme.softBreak.spacing,
+        hasSoftBreaks: self.hasSoftBreaks,
+        inlines: self.inlines
+      )
       if self.softBreakMode == .lineBreak,
          let spacing = self.theme.softBreak.spacing,
          self.hasSoftBreaks {
@@ -31,6 +37,20 @@ struct InlineText: View {
     .task(id: self.inlines) {
       self.inlineImages = (try? await self.loadInlineImages()) ?? [:]
     }
+  }
+
+  private static func debugSoftBreak(
+    mode: SoftBreak.Mode,
+    spacing: RelativeSize?,
+    hasSoftBreaks: Bool,
+    inlines: [InlineNode]
+  ) {
+    #if DEBUG
+    if hasSoftBreaks || spacing != nil {
+      print("[SoftBreak Debug] mode=\(mode), spacing=\(String(describing: spacing)), hasSoftBreaks=\(hasSoftBreaks)")
+      print("[SoftBreak Debug] inlines=\(inlines)")
+    }
+    #endif
   }
 
   private var hasSoftBreaks: Bool {
