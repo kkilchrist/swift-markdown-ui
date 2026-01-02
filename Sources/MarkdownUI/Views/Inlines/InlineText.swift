@@ -17,16 +17,10 @@ struct InlineText: View {
 
   var body: some View {
     TextStyleAttributesReader { attributes in
-      let _ = Self.debugSoftBreak(
-        mode: self.softBreakMode,
-        spacing: self.theme.softBreak.spacing,
-        hasSoftBreaks: self.hasSoftBreaks,
-        inlines: self.inlines
-      )
       if self.softBreakMode == .lineBreak,
          let spacing = self.theme.softBreak.spacing,
-         self.hasSoftBreaks {
-        self.renderWithSoftBreakSpacing(
+         self.hasLineBreaks {
+        self.renderWithLineBreakSpacing(
           attributes: attributes,
           spacing: spacing.points(relativeTo: attributes.fontProperties)
         )
@@ -39,27 +33,13 @@ struct InlineText: View {
     }
   }
 
-  private static func debugSoftBreak(
-    mode: SoftBreak.Mode,
-    spacing: RelativeSize?,
-    hasSoftBreaks: Bool,
-    inlines: [InlineNode]
-  ) {
-    #if DEBUG
-    if hasSoftBreaks || spacing != nil {
-      print("[SoftBreak Debug] mode=\(mode), spacing=\(String(describing: spacing)), hasSoftBreaks=\(hasSoftBreaks)")
-      print("[SoftBreak Debug] inlines=\(inlines)")
-    }
-    #endif
-  }
-
-  private var hasSoftBreaks: Bool {
-    self.inlines.contains { $0 == .softBreak }
+  private var hasLineBreaks: Bool {
+    self.inlines.contains { $0 == .softBreak || $0 == .lineBreak }
   }
 
   @ViewBuilder
-  private func renderWithSoftBreakSpacing(attributes: AttributeContainer, spacing: CGFloat) -> some View {
-    let segments = self.splitAtSoftBreaks()
+  private func renderWithLineBreakSpacing(attributes: AttributeContainer, spacing: CGFloat) -> some View {
+    let segments = self.splitAtLineBreaks()
     VStack(alignment: .leading, spacing: spacing) {
       ForEach(Array(segments.enumerated()), id: \.offset) { _, segment in
         self.renderSegment(segment, attributes: attributes)
@@ -67,12 +47,12 @@ struct InlineText: View {
     }
   }
 
-  private func splitAtSoftBreaks() -> [[InlineNode]] {
+  private func splitAtLineBreaks() -> [[InlineNode]] {
     var segments: [[InlineNode]] = []
     var currentSegment: [InlineNode] = []
 
     for inline in self.inlines {
-      if inline == .softBreak {
+      if inline == .softBreak || inline == .lineBreak {
         if !currentSegment.isEmpty {
           segments.append(currentSegment)
           currentSegment = []

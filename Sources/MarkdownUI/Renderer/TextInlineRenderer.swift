@@ -68,6 +68,8 @@ private struct TextInlineRenderer {
       self.renderText(content)
     case .softBreak:
       self.renderSoftBreak()
+    case .lineBreak:
+      self.renderLineBreak()
     case .html(let content):
       self.renderHTML(content)
     case .image(let source, _):
@@ -111,11 +113,15 @@ private struct TextInlineRenderer {
     case .space:
       self.defaultRender(.softBreak)
     case .lineBreak:
-      self.shouldSkipNextWhitespace = true
-      self.defaultRender(.lineBreak)
-      if let spacing = textStyles.softBreak.spacing {
-        self.pendingSoftBreakSpacing = spacing.points(relativeTo: fontProperties)
-      }
+      self.renderLineBreak()
+    }
+  }
+
+  private mutating func renderLineBreak() {
+    self.shouldSkipNextWhitespace = true
+    self.defaultRender(.lineBreak)
+    if let spacing = textStyles.softBreak.spacing {
+      self.pendingSoftBreakSpacing = spacing.points(relativeTo: fontProperties)
     }
   }
 
@@ -124,8 +130,7 @@ private struct TextInlineRenderer {
 
     switch tag?.name.lowercased() {
     case "br":
-      self.defaultRender(.lineBreak)
-      self.shouldSkipNextWhitespace = true
+      self.renderLineBreak()
     default:
       self.defaultRender(.html(html))
     }

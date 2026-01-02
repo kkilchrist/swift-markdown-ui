@@ -106,14 +106,14 @@ private struct AttributedStringInlineRenderer {
       self.result += .init(" ", attributes: self.attributes)
     case .lineBreak:
       self.renderLineBreak()
-      if let spacing = textStyles.softBreak.spacing {
-        self.pendingSoftBreakSpacing = spacing.points(relativeTo: fontProperties)
-      }
     }
   }
 
   private mutating func renderLineBreak() {
     self.result += .init("\n", attributes: self.attributes)
+    if let spacing = textStyles.softBreak.spacing {
+      self.pendingSoftBreakSpacing = spacing.points(relativeTo: fontProperties)
+    }
   }
 
   private mutating func renderCode(_ code: String) {
