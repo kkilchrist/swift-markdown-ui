@@ -1,5 +1,11 @@
 import SwiftUI
 
+#if canImport(UIKit)
+import UIKit
+#elseif canImport(AppKit)
+import AppKit
+#endif
+
 extension Sequence where Element == InlineNode {
   func renderText(
     baseURL: URL?,
@@ -32,6 +38,7 @@ private struct TextInlineRenderer {
   private let attributes: AttributeContainer
   private let fontProperties: FontProperties?
   private var shouldSkipNextWhitespace = false
+  private var pendingSoftBreakSpacing: CGFloat?
 
   init(
     baseURL: URL?,
@@ -78,7 +85,23 @@ private struct TextInlineRenderer {
       text = text.replacingOccurrences(of: "^\\s+", with: "", options: .regularExpression)
     }
 
-    self.defaultRender(.text(text))
+    if let spacing = self.pendingSoftBreakSpacing, spacing > 0 {
+      self.renderTextWithSpacing(text, spacing: spacing)
+      self.pendingSoftBreakSpacing = nil
+    } else {
+      self.defaultRender(.text(text))
+    }
+  }
+
+  private mutating func renderTextWithSpacing(_ text: String, spacing: CGFloat) {
+    var attributedString = AttributedString(text, attributes: self.attributes)
+    if let fontProps = self.attributes.fontProperties {
+      attributedString.font = .withProperties(fontProps)
+    }
+    let paragraphStyle = NSMutableParagraphStyle()
+    paragraphStyle.paragraphSpacingBefore = spacing
+    attributedString.paragraphStyle = paragraphStyle
+    self.result = self.result + Text(attributedString)
   }
 
   private mutating func renderSoftBreak() {
@@ -90,6 +113,9 @@ private struct TextInlineRenderer {
     case .lineBreak:
       self.shouldSkipNextWhitespace = true
       self.defaultRender(.lineBreak)
+      if let spacing = textStyles.softBreak.spacing {
+        self.pendingSoftBreakSpacing = spacing.points(relativeTo: fontProperties)
+      }
     }
   }
 
