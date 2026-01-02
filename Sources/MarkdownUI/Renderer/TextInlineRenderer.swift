@@ -6,14 +6,16 @@ extension Sequence where Element == InlineNode {
     textStyles: InlineTextStyles,
     images: [String: Image],
     softBreakMode: SoftBreak.Mode,
-    attributes: AttributeContainer
+    attributes: AttributeContainer,
+    fontProperties: FontProperties? = nil
   ) -> Text {
     var renderer = TextInlineRenderer(
       baseURL: baseURL,
       textStyles: textStyles,
       images: images,
       softBreakMode: softBreakMode,
-      attributes: attributes
+      attributes: attributes,
+      fontProperties: fontProperties
     )
     renderer.render(self)
     return renderer.result
@@ -28,6 +30,7 @@ private struct TextInlineRenderer {
   private let images: [String: Image]
   private let softBreakMode: SoftBreak.Mode
   private let attributes: AttributeContainer
+  private let fontProperties: FontProperties?
   private var shouldSkipNextWhitespace = false
 
   init(
@@ -35,13 +38,15 @@ private struct TextInlineRenderer {
     textStyles: InlineTextStyles,
     images: [String: Image],
     softBreakMode: SoftBreak.Mode,
-    attributes: AttributeContainer
+    attributes: AttributeContainer,
+    fontProperties: FontProperties? = nil
   ) {
     self.baseURL = baseURL
     self.textStyles = textStyles
     self.images = images
     self.softBreakMode = softBreakMode
     self.attributes = attributes
+    self.fontProperties = fontProperties
   }
 
   mutating func render<S: Sequence>(_ inlines: S) where S.Element == InlineNode {
@@ -114,7 +119,8 @@ private struct TextInlineRenderer {
           baseURL: self.baseURL,
           textStyles: self.textStyles,
           softBreakMode: self.softBreakMode,
-          attributes: self.attributes
+          attributes: self.attributes,
+          fontProperties: self.fontProperties
         )
       )
   }

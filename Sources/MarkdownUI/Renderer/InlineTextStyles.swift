@@ -7,4 +7,5 @@ struct InlineTextStyles {
   let strikethrough: TextStyle
   let highlight: TextStyle
   let link: TextStyle
+  let softBreak: SoftBreakStyle
 }

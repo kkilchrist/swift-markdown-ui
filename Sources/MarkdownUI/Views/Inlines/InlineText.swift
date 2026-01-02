@@ -25,11 +25,13 @@ struct InlineText: View {
           strong: self.theme.strong,
           strikethrough: self.theme.strikethrough,
           highlight: self.theme.highlight,
-          link: self.theme.link
+          link: self.theme.link,
+          softBreak: self.theme.softBreak
         ),
         images: self.inlineImages,
         softBreakMode: self.softBreakMode,
-        attributes: attributes
+        attributes: attributes,
+        fontProperties: attributes.fontProperties
       )
     }
     .task(id: self.inlines) {

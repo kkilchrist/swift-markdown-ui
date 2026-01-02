@@ -121,6 +121,9 @@ public struct Theme: Sendable {
   /// The link style.
   public var link: TextStyle = EmptyTextStyle()
 
+  /// The soft break style (for intentional line breaks via `  ` or `<br>`).
+  public var softBreak: SoftBreakStyle = .default
+
   var headings = Array(
     repeating: BlockStyle<BlockConfiguration> { $0.label },
     count: 6
@@ -288,6 +291,29 @@ extension Theme {
   public func link<S: TextStyle>(@TextStyleBuilder link: () -> S) -> Theme {
     var theme = self
     theme.link = link()
+    return theme
+  }
+
+  /// Adds a soft break style to the theme.
+  ///
+  /// Soft breaks are intentional line breaks created by trailing double-space or `<br>` in markdown.
+  /// Use this to add vertical spacing after these breaks when rendered in `.lineBreak` mode.
+  ///
+  /// ```swift
+  /// let theme = Theme()
+  ///     .softBreak {
+  ///         Spacing(.em(0.5))
+  ///     }
+  /// ```
+  ///
+  /// - Parameter softBreak: A text style builder that returns the soft break spacing.
+  public func softBreak<S: TextStyle>(@TextStyleBuilder softBreak: () -> S) -> Theme {
+    var theme = self
+    var attributes = AttributeContainer()
+    softBreak()._collectAttributes(in: &attributes)
+    if let spacing = attributes.softBreakSpacing {
+      theme.softBreak = SoftBreakStyle(spacing: spacing)
+    }
     return theme
   }
 }

@@ -5,6 +5,11 @@ enum FontPropertiesAttribute: AttributedStringKey {
   static let name = "fontProperties"
 }
 
+enum SoftBreakSpacingAttribute: AttributedStringKey {
+  typealias Value = RelativeSize
+  static let name = "softBreakSpacing"
+}
+
 extension AttributeScopes {
   var markdownUI: MarkdownUIAttributes.Type {
     MarkdownUIAttributes.self
@@ -13,6 +18,7 @@ extension AttributeScopes {
   struct MarkdownUIAttributes: AttributeScope {
     let swiftUI: SwiftUIAttributes
     let fontProperties: FontPropertiesAttribute
+    let softBreakSpacing: SoftBreakSpacingAttribute
   }
 }
 

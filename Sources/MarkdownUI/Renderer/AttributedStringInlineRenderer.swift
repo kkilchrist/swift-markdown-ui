@@ -1,17 +1,25 @@
 import Foundation
 
+#if canImport(UIKit)
+import UIKit
+#elseif canImport(AppKit)
+import AppKit
+#endif
+
 extension InlineNode {
   func renderAttributedString(
     baseURL: URL?,
     textStyles: InlineTextStyles,
     softBreakMode: SoftBreak.Mode,
-    attributes: AttributeContainer
+    attributes: AttributeContainer,
+    fontProperties: FontProperties? = nil
   ) -> AttributedString {
     var renderer = AttributedStringInlineRenderer(
       baseURL: baseURL,
       textStyles: textStyles,
       softBreakMode: softBreakMode,
-      attributes: attributes
+      attributes: attributes,
+      fontProperties: fontProperties
     )
     renderer.render(self)
     return renderer.result.resolvingFonts()
@@ -24,19 +32,23 @@ private struct AttributedStringInlineRenderer {
   private let baseURL: URL?
   private let textStyles: InlineTextStyles
   private let softBreakMode: SoftBreak.Mode
+  private let fontProperties: FontProperties?
   private var attributes: AttributeContainer
   private var shouldSkipNextWhitespace = false
+  private var pendingSoftBreakSpacing: CGFloat?
 
   init(
     baseURL: URL?,
     textStyles: InlineTextStyles,
     softBreakMode: SoftBreak.Mode,
-    attributes: AttributeContainer
+    attributes: AttributeContainer,
+    fontProperties: FontProperties? = nil
   ) {
     self.baseURL = baseURL
     self.textStyles = textStyles
     self.softBreakMode = softBreakMode
     self.attributes = attributes
+    self.fontProperties = fontProperties
   }
 
   mutating func render(_ inline: InlineNode) {
@@ -74,7 +86,16 @@ private struct AttributedStringInlineRenderer {
       text = text.replacingOccurrences(of: "^\\s+", with: "", options: .regularExpression)
     }
 
-    self.result += .init(text, attributes: self.attributes)
+    if let spacing = self.pendingSoftBreakSpacing, spacing > 0 {
+      var textAttributes = self.attributes
+      let paragraphStyle = NSMutableParagraphStyle()
+      paragraphStyle.paragraphSpacingBefore = spacing
+      textAttributes.paragraphStyle = paragraphStyle
+      self.result += .init(text, attributes: textAttributes)
+      self.pendingSoftBreakSpacing = nil
+    } else {
+      self.result += .init(text, attributes: self.attributes)
+    }
   }
 
   private mutating func renderSoftBreak() {
@@ -85,6 +106,9 @@ private struct AttributedStringInlineRenderer {
       self.result += .init(" ", attributes: self.attributes)
     case .lineBreak:
       self.renderLineBreak()
+      if let spacing = textStyles.softBreak.spacing {
+        self.pendingSoftBreakSpacing = spacing.points(relativeTo: fontProperties)
+      }
     }
   }
 
