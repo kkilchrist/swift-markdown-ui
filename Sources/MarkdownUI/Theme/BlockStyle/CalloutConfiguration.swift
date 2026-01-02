@@ -125,6 +125,26 @@ public enum CalloutType: String, CaseIterable, Sendable {
     }
   }
 
+  /// CSS hex color for HTML rendering (no SwiftUI dependency).
+  public var cssColor: String {
+    switch self {
+    case .note, .info, .todo:
+      return "#3b82f6"  // blue
+    case .abstract, .summary, .tip, .hint, .important:
+      return "#06b6d4"  // cyan
+    case .success, .check, .done:
+      return "#22c55e"  // green
+    case .question, .help, .faq, .warning, .caution, .attention:
+      return "#f97316"  // orange
+    case .failure, .fail, .missing, .danger, .error, .bug:
+      return "#ef4444"  // red
+    case .example:
+      return "#a855f7"  // purple
+    case .quote, .cite:
+      return "#6b7280"  // gray
+    }
+  }
+
   /// Creates a CalloutType from a string, case-insensitive.
   public init?(rawValue: String) {
     let lowercased = rawValue.lowercased()

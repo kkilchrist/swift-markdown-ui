@@ -24,7 +24,7 @@ extension BlockNode {
 
     case .callout(let type, let title, let children):
       let calloutType = CalloutType(rawValue: type)
-      let color = calloutType?.color.cssValue ?? "#6b7280"
+      let color = calloutType?.cssColor ?? "#6b7280"
       let icon = calloutType?.htmlIcon ?? "ℹ️"
       let displayTitle = title ?? type.capitalized
       let content = children.map { $0.renderExtendedHTML() }.joined(separator: "\n")
@@ -289,23 +289,4 @@ private func parseHTMLImageDimensions(from altText: String) -> (cleanAlt: String
   }
 
   return (cleanAlt, width, height)
-}
-
-// MARK: - Color CSS Helper
-
-import SwiftUI
-
-extension Color {
-  fileprivate var cssValue: String {
-    switch self {
-    case .blue: return "#3b82f6"
-    case .cyan: return "#06b6d4"
-    case .green: return "#22c55e"
-    case .orange: return "#f97316"
-    case .red: return "#ef4444"
-    case .purple: return "#a855f7"
-    case .gray: return "#6b7280"
-    default: return "#6b7280"
-    }
-  }
 }
