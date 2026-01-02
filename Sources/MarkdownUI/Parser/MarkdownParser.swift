@@ -4,9 +4,16 @@ import Foundation
 
 extension Array where Element == BlockNode {
   init(markdown: String) {
+    // Strip any Private Use Area characters that could conflict with our placeholders
+    let sanitized = markdown.strippingPrivateUseAreaCharacters()
+
+    // Preprocess: protect highlight markers before cmark parsing
+    // This allows nested formatting like ==**bold**== to be parsed correctly
+    let (withHighlights, _) = sanitized.protectingHighlightMarkers()
+
     // Preprocess: protect image dimension syntax from table parser
     // Replace | inside ![alt|dimensions](url) with a placeholder before cmark parsing
-    let (preprocessed, hasImageDimensions) = markdown.protectingImageDimensions()
+    let (preprocessed, hasImageDimensions) = withHighlights.protectingImageDimensions()
 
     let blocks = UnsafeNode.parseMarkdown(preprocessed) { document in
       document.children.compactMap(BlockNode.init(unsafeNode:))

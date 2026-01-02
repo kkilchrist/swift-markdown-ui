@@ -551,4 +551,130 @@ final class MarkdownContentTests: XCTestCase {
       emojiContent
     )
   }
+
+  func testHighlight() {
+    // given
+    let markdown = "Hello ==world==."
+
+    // when
+    let content = MarkdownContent(markdown)
+
+    // then
+    XCTAssertEqual(
+      MarkdownContent {
+        Paragraph {
+          "Hello "
+          Highlight("world")
+          "."
+        }
+      },
+      content
+    )
+  }
+
+  func testHighlightWithNestedBold() {
+    // Regression test: nested formatting inside highlights should be parsed correctly.
+    // Previously, ==highlighted **bold** text== would incorrectly match " and " as highlighted
+    // when multiple highlights were on the same line.
+
+    // given
+    let markdown = "This has ==highlighted **bold** text== here."
+
+    // when
+    let content = MarkdownContent(markdown)
+
+    // then
+    XCTAssertEqual(
+      MarkdownContent {
+        Paragraph {
+          "This has "
+          Highlight {
+            "highlighted "
+            Strong("bold")
+            " text"
+          }
+          " here."
+        }
+      },
+      content
+    )
+  }
+
+  func testHighlightWithNestedItalic() {
+    // given
+    let markdown = "Check ==*italic* highlight== out."
+
+    // when
+    let content = MarkdownContent(markdown)
+
+    // then
+    XCTAssertEqual(
+      MarkdownContent {
+        Paragraph {
+          "Check "
+          Highlight {
+            Emphasis("italic")
+            " highlight"
+          }
+          " out."
+        }
+      },
+      content
+    )
+  }
+
+  func testMultipleHighlightsOnSameLine() {
+    // Regression test: multiple highlights on the same line should be parsed independently.
+    // Previously, ==first== and ==second== would incorrectly highlight " and " between them.
+
+    // given
+    let markdown = "This has ==first== and ==second== highlights."
+
+    // when
+    let content = MarkdownContent(markdown)
+
+    // then
+    XCTAssertEqual(
+      MarkdownContent {
+        Paragraph {
+          "This has "
+          Highlight("first")
+          " and "
+          Highlight("second")
+          " highlights."
+        }
+      },
+      content
+    )
+  }
+
+  func testMultipleHighlightsWithNestedFormatting() {
+    // Comprehensive test: multiple highlights with nested formatting on same line
+
+    // given
+    let markdown = "This paragraph has ==highlighted **bold** text== and ==*highlighted italic*== together."
+
+    // when
+    let content = MarkdownContent(markdown)
+
+    // then
+    XCTAssertEqual(
+      MarkdownContent {
+        Paragraph {
+          "This paragraph has "
+          Highlight {
+            "highlighted "
+            Strong("bold")
+            " text"
+          }
+          " and "
+          Highlight {
+            Emphasis("highlighted italic")
+          }
+          " together."
+        }
+      },
+      content
+    )
+  }
 }

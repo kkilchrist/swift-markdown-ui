@@ -1,12 +1,58 @@
 import Foundation
 
-// MARK: - Image Dimension Protection
+// MARK: - Placeholder Characters
 
 /// Placeholder character used to protect | in image dimensions from table parsing.
 /// Using Unicode Private Use Area character U+E000.
 private let imageDimensionPlaceholder = "\u{E000}"
 
+/// Placeholder characters for highlight markers to protect them from cmark parsing.
+/// This allows nested formatting like ==**bold**== to be parsed correctly.
+private let highlightOpenPlaceholder = "\u{E001}"
+private let highlightClosePlaceholder = "\u{E002}"
+
+/// Unicode Private Use Area range (U+E000 to U+F8FF)
+private let privateUseAreaRange: ClosedRange<Unicode.Scalar> = "\u{E000}"..."\u{F8FF}"
+
 extension String {
+  /// Strips Unicode Private Use Area characters from the string.
+  /// These characters are reserved for application-specific use and shouldn't appear in normal text.
+  func strippingPrivateUseAreaCharacters() -> String {
+    String(self.unicodeScalars.filter { !privateUseAreaRange.contains($0) })
+  }
+  /// Protects highlight syntax (==text==) from cmark parsing by replacing == markers with placeholders.
+  /// This allows nested formatting like ==**bold**== to be parsed correctly by cmark.
+  /// Returns the modified string and whether any replacements were made.
+  func protectingHighlightMarkers() -> (result: String, hasHighlights: Bool) {
+    // Pattern matches ==content== where content is non-empty and doesn't span multiple lines
+    // Using non-greedy match to find the closest ==
+    let pattern = #"==([^=\n]+?)==(?!=)"#
+
+    guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else {
+      return (self, false)
+    }
+
+    var result = self
+    var hasReplacements = false
+    let nsRange = NSRange(self.startIndex..., in: self)
+
+    // Process matches in reverse order to maintain correct indices
+    let matches = regex.matches(in: self, options: [], range: nsRange).reversed()
+
+    for match in matches {
+      guard let fullRange = Range(match.range, in: result),
+            let contentRange = Range(match.range(at: 1), in: result) else { continue }
+
+      let content = String(result[contentRange])
+      let replacement = "\(highlightOpenPlaceholder)\(content)\(highlightClosePlaceholder)"
+
+      result.replaceSubrange(fullRange, with: replacement)
+      hasReplacements = true
+    }
+
+    return (result, hasReplacements)
+  }
+
   /// Protects image dimension syntax from the table parser by replacing | with a placeholder.
   /// Returns the modified string and whether any replacements were made.
   ///
@@ -151,71 +197,183 @@ extension InlineNode {
 // MARK: - Highlight Syntax (==text==)
 
 extension Array where Element == InlineNode {
-  /// Rewrites text nodes to parse ==highlight== syntax into .highlight nodes.
-  func applyHighlightSyntax() -> [InlineNode] {
-    self.flatMap { node -> [InlineNode] in
+  /// Restores highlight placeholders back into proper .highlight nodes.
+  /// This handles nested formatting correctly by collecting all nodes between open/close markers.
+  func restoringHighlightMarkers() -> [InlineNode] {
+    var results: [InlineNode] = []
+    var highlightBuffer: [InlineNode]? = nil  // nil means not in highlight, [] means collecting
+    var i = 0
+
+    while i < self.count {
+      let node = self[i]
+
       switch node {
       case .text(let content):
-        return parseHighlights(in: content)
+        // Check for highlight markers in the text
+        let processed = processTextForHighlightMarkers(
+          content,
+          highlightBuffer: &highlightBuffer,
+          results: &results
+        )
+        results.append(contentsOf: processed)
+
       case .emphasis(let children):
-        return [.emphasis(children: children.applyHighlightSyntax())]
+        let processed = InlineNode.emphasis(children: children.restoringHighlightMarkers())
+        if highlightBuffer != nil {
+          highlightBuffer?.append(processed)
+        } else {
+          results.append(processed)
+        }
+
       case .strong(let children):
-        return [.strong(children: children.applyHighlightSyntax())]
+        let processed = InlineNode.strong(children: children.restoringHighlightMarkers())
+        if highlightBuffer != nil {
+          highlightBuffer?.append(processed)
+        } else {
+          results.append(processed)
+        }
+
       case .strikethrough(let children):
-        return [.strikethrough(children: children.applyHighlightSyntax())]
+        let processed = InlineNode.strikethrough(children: children.restoringHighlightMarkers())
+        if highlightBuffer != nil {
+          highlightBuffer?.append(processed)
+        } else {
+          results.append(processed)
+        }
+
       case .highlight(let children):
-        return [.highlight(children: children.applyHighlightSyntax())]
+        let processed = InlineNode.highlight(children: children.restoringHighlightMarkers())
+        if highlightBuffer != nil {
+          highlightBuffer?.append(processed)
+        } else {
+          results.append(processed)
+        }
+
       case .link(let destination, let children):
-        return [.link(destination: destination, children: children.applyHighlightSyntax())]
+        let processed = InlineNode.link(
+          destination: destination,
+          children: children.restoringHighlightMarkers()
+        )
+        if highlightBuffer != nil {
+          highlightBuffer?.append(processed)
+        } else {
+          results.append(processed)
+        }
+
       case .image(let source, let children):
-        return [.image(source: source, children: children.applyHighlightSyntax())]
+        let processed = InlineNode.image(source: source, children: children.restoringHighlightMarkers())
+        if highlightBuffer != nil {
+          highlightBuffer?.append(processed)
+        } else {
+          results.append(processed)
+        }
+
       default:
-        return [node]
+        if highlightBuffer != nil {
+          highlightBuffer?.append(node)
+        } else {
+          results.append(node)
+        }
       }
+
+      i += 1
     }
+
+    // If we ended while still in a highlight (unclosed), just add the buffer as regular content
+    if let remaining = highlightBuffer, !remaining.isEmpty {
+      results.append(contentsOf: remaining)
+    }
+
+    return results
   }
 }
 
-/// Parses highlight syntax (==text==) in a text string.
-private func parseHighlights(in text: String) -> [InlineNode] {
-  let pattern = "==(.+?)=="
-  guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else {
-    return [.text(text)]
-  }
+/// Processes a text node for highlight placeholders.
+/// Handles cases where markers and content are in the same text node.
+private func processTextForHighlightMarkers(
+  _ text: String,
+  highlightBuffer: inout [InlineNode]?,
+  results: inout [InlineNode]
+) -> [InlineNode] {
+  var output: [InlineNode] = []
+  var current = text.startIndex
 
-  var results: [InlineNode] = []
-  var lastEnd = text.startIndex
+  while current < text.endIndex {
+    if highlightBuffer == nil {
+      // Not in highlight mode - look for open marker
+      if let openRange = text.range(
+        of: highlightOpenPlaceholder,
+        range: current..<text.endIndex
+      ) {
+        // Add text before the marker
+        if current < openRange.lowerBound {
+          let before = String(text[current..<openRange.lowerBound])
+          output.append(.text(before))
+        }
 
-  let nsRange = NSRange(text.startIndex..., in: text)
-  regex.enumerateMatches(in: text, options: [], range: nsRange) { match, _, _ in
-    guard let match = match,
-          let fullRange = Range(match.range, in: text),
-          let contentRange = Range(match.range(at: 1), in: text) else { return }
+        // Start collecting highlight content
+        highlightBuffer = []
+        current = openRange.upperBound
 
-    // Text before the match
-    if lastEnd < fullRange.lowerBound {
-      let beforeText = String(text[lastEnd..<fullRange.lowerBound])
-      if !beforeText.isEmpty {
-        results.append(.text(beforeText))
+        // Check if there's a close marker in the same text node
+        if let closeRange = text.range(
+          of: highlightClosePlaceholder,
+          range: current..<text.endIndex
+        ) {
+          // Content between markers in same text node
+          let content = String(text[current..<closeRange.lowerBound])
+          if !content.isEmpty {
+            highlightBuffer?.append(.text(content))
+          }
+
+          // Close the highlight
+          if let buffer = highlightBuffer {
+            output.append(.highlight(children: buffer))
+          }
+          highlightBuffer = nil
+          current = closeRange.upperBound
+        }
+        // else: close marker is in a later node, continue collecting
+      } else {
+        // No open marker found - add remaining text
+        let remaining = String(text[current...])
+        if !remaining.isEmpty {
+          output.append(.text(remaining))
+        }
+        current = text.endIndex
+      }
+    } else {
+      // In highlight mode - look for close marker
+      if let closeRange = text.range(
+        of: highlightClosePlaceholder,
+        range: current..<text.endIndex
+      ) {
+        // Add text before the close marker to highlight buffer
+        if current < closeRange.lowerBound {
+          let content = String(text[current..<closeRange.lowerBound])
+          highlightBuffer?.append(.text(content))
+        }
+
+        // Close the highlight and add to results (not output, since we're collecting)
+        if let buffer = highlightBuffer {
+          results.append(.highlight(children: buffer))
+        }
+        highlightBuffer = nil
+        current = closeRange.upperBound
+
+        // Continue looking for more markers after this close
+      } else {
+        // No close marker - add all remaining text to buffer
+        let remaining = String(text[current...])
+        if !remaining.isEmpty {
+          highlightBuffer?.append(.text(remaining))
+        }
+        current = text.endIndex
       }
     }
-
-    // The highlighted content
-    let highlightedText = String(text[contentRange])
-    results.append(.highlight(children: [.text(highlightedText)]))
-
-    lastEnd = fullRange.upperBound
   }
 
-  // Remaining text after the last match
-  if lastEnd < text.endIndex {
-    let remainingText = String(text[lastEnd...])
-    if !remainingText.isEmpty {
-      results.append(.text(remainingText))
-    }
-  }
-
-  return results.isEmpty ? [.text(text)] : results
+  return output
 }
 
 // MARK: - Callout Syntax (> [!type])
@@ -432,52 +590,52 @@ extension Array where Element == BlockNode {
   func applyObsidianExtensions() -> [BlockNode] {
     self
       .applyCalloutSyntax()
-      .applyHighlightSyntaxToBlocks()
+      .restoringHighlightMarkersInBlocks()
   }
 
-  /// Applies highlight syntax to all inline content within blocks.
-  private func applyHighlightSyntaxToBlocks() -> [BlockNode] {
+  /// Restores highlight markers in all inline content within blocks.
+  private func restoringHighlightMarkersInBlocks() -> [BlockNode] {
     self.map { block -> BlockNode in
       switch block {
       case .blockquote(let children):
-        return .blockquote(children: children.applyHighlightSyntaxToBlocks())
+        return .blockquote(children: children.restoringHighlightMarkersInBlocks())
 
       case .callout(let type, let title, let children):
-        return .callout(type: type, title: title, children: children.applyHighlightSyntaxToBlocks())
+        return .callout(type: type, title: title, children: children.restoringHighlightMarkersInBlocks())
 
       case .bulletedList(let isTight, let items):
         return .bulletedList(
           isTight: isTight,
-          items: items.map { RawListItem(children: $0.children.applyHighlightSyntaxToBlocks()) }
+          items: items.map { RawListItem(children: $0.children.restoringHighlightMarkersInBlocks()) }
         )
 
       case .numberedList(let isTight, let start, let items):
         return .numberedList(
           isTight: isTight,
           start: start,
-          items: items.map { RawListItem(children: $0.children.applyHighlightSyntaxToBlocks()) }
+          items: items.map { RawListItem(children: $0.children.restoringHighlightMarkersInBlocks()) }
         )
 
       case .taskList(let isTight, let items):
         return .taskList(
           isTight: isTight,
           items: items.map {
-            RawTaskListItem(isCompleted: $0.isCompleted, children: $0.children.applyHighlightSyntaxToBlocks())
+            RawTaskListItem(isCompleted: $0.isCompleted, children: $0.children.restoringHighlightMarkersInBlocks())
           }
         )
 
       case .paragraph(let content):
-        return .paragraph(content: content.applyHighlightSyntax())
+        return .paragraph(content: content.restoringHighlightMarkers())
 
       case .heading(let level, let content):
-        return .heading(level: level, content: content.applyHighlightSyntax())
+        return .heading(level: level, content: content.restoringHighlightMarkers())
 
       case .table(let columnAlignments, let rows):
         return .table(
           columnAlignments: columnAlignments,
           rows: rows.map { row in
             RawTableRow(cells: row.cells.map { cell in
-              RawTableCell(content: cell.content.applyHighlightSyntax())
+              RawTableCell(content: cell.content.restoringHighlightMarkers())
             })
           }
         )
