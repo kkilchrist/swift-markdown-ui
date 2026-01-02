@@ -1,4 +1,5 @@
 import Foundation
+import MarkdownUICore
 
 /// An emphasized text in a Markdown content block.
 public struct Emphasis: InlineContentProtocol {

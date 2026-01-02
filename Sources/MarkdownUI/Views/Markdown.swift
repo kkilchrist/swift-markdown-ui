@@ -1,4 +1,5 @@
 import SwiftUI
+import MarkdownUICore
 
 /// A view that displays read-only Markdown content.
 ///

@@ -1,4 +1,5 @@
 import SwiftUI
+import MarkdownUICore
 
 struct CalloutView: View {
   @Environment(\.theme.callout) private var callout

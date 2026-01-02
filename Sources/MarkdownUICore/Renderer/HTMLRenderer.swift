@@ -2,21 +2,21 @@ import Foundation
 
 // MARK: - Block Node HTML Rendering
 
-extension Array where Element == BlockNode {
+public extension Array where Element == BlockNode {
   /// Renders the blocks as HTML with full support for extended markdown syntax.
-  func renderExtendedHTML() -> String {
+  public func renderExtendedHTML() -> String {
     self.map { $0.renderExtendedHTML() }.joined(separator: "\n")
   }
 }
 
-extension BlockNode {
+public extension BlockNode {
   /// Returns the HTML `dir` attribute for this block based on text direction.
   private var htmlDirAttribute: String {
     textDirection == .rightToLeft ? " dir=\"rtl\"" : ""
   }
 
   /// Renders this block as HTML with full support for extended markdown syntax.
-  func renderExtendedHTML() -> String {
+  public func renderExtendedHTML() -> String {
     switch self {
     case .blockquote(let children):
       let content = children.map { $0.renderExtendedHTML() }.joined(separator: "\n")
@@ -144,9 +144,9 @@ extension BlockNode {
 
 // MARK: - Inline Node HTML Rendering
 
-extension Array where Element == InlineNode {
+public extension Array where Element == InlineNode {
   /// Renders the inline nodes as HTML with full support for extended markdown syntax.
-  func renderExtendedHTML() -> String {
+  public func renderExtendedHTML() -> String {
     self.map { $0.renderExtendedHTML() }.joined()
   }
 
@@ -155,7 +155,7 @@ extension Array where Element == InlineNode {
   }
 }
 
-extension InlineNode {
+public extension InlineNode {
   /// Renders this inline node as HTML with full support for extended markdown syntax.
   public func renderExtendedHTML() -> String {
     switch self {
@@ -227,7 +227,7 @@ extension InlineNode {
 
 // MARK: - Table Alignment Helper
 
-extension RawTableColumnAlignment {
+public extension RawTableColumnAlignment {
   fileprivate var htmlAttribute: String {
     switch self {
     case .left:
@@ -244,7 +244,7 @@ extension RawTableColumnAlignment {
 
 // MARK: - String HTML Helpers
 
-extension String {
+public extension String {
   fileprivate var htmlEscaped: String {
     self
       .replacingOccurrences(of: "&", with: "&amp;")

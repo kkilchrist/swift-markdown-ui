@@ -1,4 +1,5 @@
 import Foundation
+import MarkdownUICore
 
 /// A text style that doesn't apply any text style.
 public struct EmptyTextStyle: TextStyle {

@@ -1,4 +1,5 @@
 import SwiftUI
+import MarkdownUICore
 
 struct BlockMargin: Equatable {
   var top: CGFloat?

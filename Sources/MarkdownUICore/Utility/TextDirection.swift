@@ -27,7 +27,7 @@ public enum TextDirection: Sendable {
   }
 }
 
-extension Unicode.Scalar {
+public extension Unicode.Scalar {
   /// Returns `true` if this scalar is a strong right-to-left character.
   ///
   /// Covers Arabic and Hebrew script ranges per Unicode Bidirectional Algorithm.

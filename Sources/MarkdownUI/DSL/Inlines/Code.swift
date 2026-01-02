@@ -1,4 +1,5 @@
 import Foundation
+import MarkdownUICore
 
 /// A code span in a Markdown content block.
 public struct Code: InlineContentProtocol {

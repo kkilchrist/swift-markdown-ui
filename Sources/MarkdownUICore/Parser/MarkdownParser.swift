@@ -2,8 +2,8 @@ import Foundation
 @_implementationOnly import cmark_gfm
 @_implementationOnly import cmark_gfm_extensions
 
-extension Array where Element == BlockNode {
-  init(markdown: String) {
+public extension Array where Element == BlockNode {
+  public init(markdown: String) {
     // Strip any Private Use Area characters that could conflict with our placeholders
     let sanitized = markdown.strippingPrivateUseAreaCharacters()
 
@@ -30,26 +30,26 @@ extension Array where Element == BlockNode {
     self.init(result)
   }
 
-  func renderMarkdown() -> String {
+  public func renderMarkdown() -> String {
     UnsafeNode.makeDocument(self) { document in
       String(cString: cmark_render_commonmark(document, CMARK_OPT_DEFAULT, 0))
     } ?? ""
   }
 
-  func renderPlainText() -> String {
+  public func renderPlainText() -> String {
     UnsafeNode.makeDocument(self) { document in
       String(cString: cmark_render_plaintext(document, CMARK_OPT_DEFAULT, 0))
     } ?? ""
   }
 
-  func renderHTML() -> String {
+  public func renderHTML() -> String {
     UnsafeNode.makeDocument(self) { document in
       String(cString: cmark_render_html(document, CMARK_OPT_DEFAULT, nil))
     } ?? ""
   }
 }
 
-extension BlockNode {
+public extension BlockNode {
   fileprivate init?(unsafeNode: UnsafeNode) {
     switch unsafeNode.nodeType {
     case .blockquote:
@@ -102,7 +102,7 @@ extension BlockNode {
   }
 }
 
-extension RawListItem {
+public extension RawListItem {
   fileprivate init(unsafeNode: UnsafeNode) {
     guard unsafeNode.nodeType == .item else {
       fatalError("Expected a list item but got a '\(unsafeNode.nodeType)' instead.")
@@ -111,7 +111,7 @@ extension RawListItem {
   }
 }
 
-extension RawTaskListItem {
+public extension RawTaskListItem {
   fileprivate init(unsafeNode: UnsafeNode) {
     guard unsafeNode.nodeType == .taskListItem || unsafeNode.nodeType == .item else {
       fatalError("Expected a list item but got a '\(unsafeNode.nodeType)' instead.")
@@ -123,7 +123,7 @@ extension RawTaskListItem {
   }
 }
 
-extension RawTableRow {
+public extension RawTableRow {
   fileprivate init(unsafeNode: UnsafeNode) {
     guard unsafeNode.nodeType == .tableRow || unsafeNode.nodeType == .tableHead else {
       fatalError("Expected a table row but got a '\(unsafeNode.nodeType)' instead.")
@@ -132,7 +132,7 @@ extension RawTableRow {
   }
 }
 
-extension RawTableCell {
+public extension RawTableCell {
   fileprivate init(unsafeNode: UnsafeNode) {
     guard unsafeNode.nodeType == .tableCell else {
       fatalError("Expected a table cell but got a '\(unsafeNode.nodeType)' instead.")
@@ -141,7 +141,7 @@ extension RawTableCell {
   }
 }
 
-extension InlineNode {
+public extension InlineNode {
   fileprivate init?(unsafeNode: UnsafeNode) {
     switch unsafeNode.nodeType {
     case .text:
@@ -179,7 +179,7 @@ extension InlineNode {
 
 private typealias UnsafeNode = UnsafeMutablePointer<cmark_node>
 
-extension UnsafeNode {
+public extension UnsafeNode {
   fileprivate var nodeType: NodeType {
     let typeString = String(cString: cmark_node_get_type_string(self))
     guard let nodeType = NodeType(rawValue: typeString) else {
@@ -517,11 +517,11 @@ private struct UnsafeNodeSequence: Sequence {
 
   private let node: UnsafeNode?
 
-  init(_ node: UnsafeNode?) {
+  public init(_ node: UnsafeNode?) {
     self.node = node
   }
 
-  func makeIterator() -> Iterator {
+  public func makeIterator() -> Iterator {
     .init(self.node)
   }
 }
@@ -529,10 +529,10 @@ private struct UnsafeNodeSequence: Sequence {
 // Extension node types are not exported in `cmark_gfm_extensions`,
 // so we need to look for them in the symbol table
 private struct ExtensionNodeTypes {
-  let CMARK_NODE_TABLE: cmark_node_type
-  let CMARK_NODE_TABLE_ROW: cmark_node_type
-  let CMARK_NODE_TABLE_CELL: cmark_node_type
-  let CMARK_NODE_STRIKETHROUGH: cmark_node_type
+  public let CMARK_NODE_TABLE: cmark_node_type
+  public let CMARK_NODE_TABLE_ROW: cmark_node_type
+  public let CMARK_NODE_TABLE_CELL: cmark_node_type
+  public let CMARK_NODE_STRIKETHROUGH: cmark_node_type
 
   static let shared = ExtensionNodeTypes()
 

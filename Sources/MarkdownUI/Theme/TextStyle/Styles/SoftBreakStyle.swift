@@ -1,4 +1,5 @@
 import Foundation
+import MarkdownUICore
 
 /// A style that configures the appearance of soft breaks in Markdown content.
 ///

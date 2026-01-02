@@ -1,4 +1,5 @@
 import SwiftUI
+import MarkdownUICore
 
 struct BlockquoteView: View {
   @Environment(\.theme.blockquote) private var blockquote

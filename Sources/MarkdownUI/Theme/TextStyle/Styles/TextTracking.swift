@@ -1,4 +1,5 @@
 import Foundation
+import MarkdownUICore
 
 /// A text style that sets the tracking of the text.
 public struct TextTracking: TextStyle {

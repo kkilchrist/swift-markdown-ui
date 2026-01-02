@@ -1,7 +1,9 @@
 import Foundation
+import MarkdownUICore
 
 #if canImport(UIKit)
 import UIKit
+import MarkdownUICore
 #elseif canImport(AppKit)
 import AppKit
 #endif

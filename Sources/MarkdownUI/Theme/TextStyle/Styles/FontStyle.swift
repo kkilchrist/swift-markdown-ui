@@ -1,4 +1,5 @@
 import Foundation
+import MarkdownUICore
 
 /// A text style that sets whether the font should be styled with a normal or italic face from its font family.
 public struct FontStyle: TextStyle {

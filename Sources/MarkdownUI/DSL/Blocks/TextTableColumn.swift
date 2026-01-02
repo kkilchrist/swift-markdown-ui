@@ -1,4 +1,5 @@
 import Foundation
+import MarkdownUICore
 
 /// A column that displays styled text or images for each row in a table element.
 ///

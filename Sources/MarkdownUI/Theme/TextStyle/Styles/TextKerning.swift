@@ -1,4 +1,5 @@
 import Foundation
+import MarkdownUICore
 
 /// A text style that sets the spacing, or kerning, between the characters of the text.
 public struct TextKerning: TextStyle {

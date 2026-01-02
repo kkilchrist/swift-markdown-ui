@@ -1,4 +1,5 @@
 import SwiftUI
+import MarkdownUICore
 
 /// The appearance of a text inline in a Markdown view.
 ///

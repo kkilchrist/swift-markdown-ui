@@ -1,4 +1,5 @@
 import Foundation
+import MarkdownUICore
 
 /// A deleted or redacted text in a Markdown content block.
 public struct Strikethrough: InlineContentProtocol {

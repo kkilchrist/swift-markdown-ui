@@ -1,4 +1,5 @@
 import SwiftUI
+import MarkdownUICore
 
 /// A text style that sets the foreground color of the text.
 public struct ForegroundColor: TextStyle {

@@ -1,4 +1,5 @@
 import SwiftUI
+import MarkdownUICore
 
 extension Theme {
   /// A theme that mimics the DocC style.

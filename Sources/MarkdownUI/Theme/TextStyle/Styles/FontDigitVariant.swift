@@ -1,4 +1,5 @@
 import Foundation
+import MarkdownUICore
 
 /// A text style that adjusts the font to use alternate glyphs for digits.
 public struct FontDigitVariant: TextStyle {

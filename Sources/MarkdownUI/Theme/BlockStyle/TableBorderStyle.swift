@@ -1,4 +1,5 @@
 import SwiftUI
+import MarkdownUICore
 
 /// A type that represents the appearance of table borders.
 ///

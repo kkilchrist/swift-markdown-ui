@@ -1,4 +1,5 @@
 import Foundation
+import MarkdownUICore
 
 /// An inline content that can navigate to a URL.
 ///

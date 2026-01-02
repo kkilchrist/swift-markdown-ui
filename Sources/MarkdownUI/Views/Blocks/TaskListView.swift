@@ -1,4 +1,5 @@
 import SwiftUI
+import MarkdownUICore
 
 struct TaskListView: View {
   @Environment(\.theme.list) private var list

@@ -1,4 +1,5 @@
 import SwiftUI
+import MarkdownUICore
 
 struct TableBounds {
   var rowCount: Int {

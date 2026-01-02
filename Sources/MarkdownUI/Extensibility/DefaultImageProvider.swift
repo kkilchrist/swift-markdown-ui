@@ -1,5 +1,7 @@
 import NetworkImage
+import MarkdownUICore
 import SwiftUI
+import MarkdownUICore
 
 /// The default image provider, which loads images from the network.
 public struct DefaultImageProvider: ImageProvider {

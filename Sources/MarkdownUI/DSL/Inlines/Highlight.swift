@@ -1,4 +1,5 @@
 import Foundation
+import MarkdownUICore
 
 /// A highlighted text inline element (rendered with background color).
 ///

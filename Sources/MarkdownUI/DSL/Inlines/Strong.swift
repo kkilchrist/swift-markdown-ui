@@ -1,4 +1,5 @@
 import Foundation
+import MarkdownUICore
 
 /// A strong text in a Markdown content block.
 public struct Strong: InlineContentProtocol {

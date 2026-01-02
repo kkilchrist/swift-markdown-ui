@@ -1,4 +1,5 @@
 import SwiftUI
+import MarkdownUICore
 
 struct ResizeToFit<Content>: View where Content: View {
   private let idealSize: CGSize

@@ -1,4 +1,5 @@
 import SwiftUI
+import MarkdownUICore
 
 /// Represents a relative size or length, such as a width, padding, or font size.
 ///

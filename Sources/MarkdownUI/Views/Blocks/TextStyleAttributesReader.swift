@@ -1,4 +1,5 @@
 import SwiftUI
+import MarkdownUICore
 
 struct TextStyleAttributesReader<Content: View>: View {
   @Environment(\.textStyle) private var textStyle

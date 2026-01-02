@@ -1,4 +1,5 @@
 import SwiftUI
+import MarkdownUICore
 
 struct TableBorderView: View {
   @Environment(\.tableBorderStyle) private var tableBorderStyle

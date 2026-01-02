@@ -1,4 +1,5 @@
 import Foundation
+import MarkdownUICore
 
 /// A Markdown task list item.
 ///

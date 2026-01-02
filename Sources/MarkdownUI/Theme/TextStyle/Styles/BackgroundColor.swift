@@ -1,4 +1,5 @@
 import SwiftUI
+import MarkdownUICore
 
 /// A text style that sets the text background color.
 public struct BackgroundColor: TextStyle {

@@ -1,6 +1,6 @@
 import Foundation
 
-enum BlockNode: Hashable {
+public enum BlockNode: Hashable {
   case blockquote(children: [BlockNode])
   case callout(type: String, title: String?, children: [BlockNode])
   case bulletedList(isTight: Bool, items: [RawListItem])
@@ -14,7 +14,7 @@ enum BlockNode: Hashable {
   case thematicBreak
 }
 
-extension BlockNode {
+public extension BlockNode {
   var children: [BlockNode] {
     switch self {
     case .blockquote(let children):
@@ -38,26 +38,43 @@ extension BlockNode {
   }
 }
 
-struct RawListItem: Hashable {
-  let children: [BlockNode]
+public struct RawListItem: Hashable {
+  public let children: [BlockNode]
+
+  public init(children: [BlockNode]) {
+    self.children = children
+  }
 }
 
-struct RawTaskListItem: Hashable {
-  let isCompleted: Bool
-  let children: [BlockNode]
+public struct RawTaskListItem: Hashable {
+  public let isCompleted: Bool
+  public let children: [BlockNode]
+
+  public init(isCompleted: Bool, children: [BlockNode]) {
+    self.isCompleted = isCompleted
+    self.children = children
+  }
 }
 
-enum RawTableColumnAlignment: Character {
+public enum RawTableColumnAlignment: Character {
   case none = "\0"
   case left = "l"
   case center = "c"
   case right = "r"
 }
 
-struct RawTableRow: Hashable {
-  let cells: [RawTableCell]
+public struct RawTableRow: Hashable {
+  public let cells: [RawTableCell]
+
+  public init(cells: [RawTableCell]) {
+    self.cells = cells
+  }
 }
 
-struct RawTableCell: Hashable {
-  let content: [InlineNode]
+public struct RawTableCell: Hashable {
+  public let content: [InlineNode]
+
+  public init(content: [InlineNode]) {
+    self.content = content
+  }
 }

@@ -1,4 +1,5 @@
 import SwiftUI
+import MarkdownUICore
 
 struct CodeBlockView: View {
   @Environment(\.theme.codeBlock) private var codeBlock

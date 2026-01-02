@@ -1,4 +1,5 @@
 import Foundation
+import MarkdownUICore
 
 /// A text style that sets the text font family.
 public struct FontFamily: TextStyle {

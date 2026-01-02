@@ -1,4 +1,5 @@
 import SwiftUI
+import MarkdownUICore
 
 extension View {
   /// Sets the table border style for the Markdown tables in a view hierarchy.

@@ -1,4 +1,5 @@
 import SwiftUI
+import MarkdownUICore
 
 extension View {
   /// Sets the soft break mode for inline texts in a view hierarchy.

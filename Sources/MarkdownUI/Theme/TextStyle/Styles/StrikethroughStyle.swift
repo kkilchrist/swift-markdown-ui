@@ -1,4 +1,5 @@
 import SwiftUI
+import MarkdownUICore
 
 /// A text style that sets the strikethrough line style of the text.
 public struct StrikethroughStyle: TextStyle {

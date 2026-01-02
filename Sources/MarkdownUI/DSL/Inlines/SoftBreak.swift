@@ -1,4 +1,5 @@
 import Foundation
+import MarkdownUICore
 
 /// A soft break in a Markdown content block.
 ///

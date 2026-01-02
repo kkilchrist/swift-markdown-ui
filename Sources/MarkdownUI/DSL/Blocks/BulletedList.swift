@@ -1,4 +1,5 @@
 import Foundation
+import MarkdownUICore
 
 /// A Markdown bulleted list element.
 ///

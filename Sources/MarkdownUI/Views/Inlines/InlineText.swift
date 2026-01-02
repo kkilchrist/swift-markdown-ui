@@ -1,4 +1,5 @@
 import SwiftUI
+import MarkdownUICore
 
 struct InlineText: View {
   @Environment(\.inlineImageProvider) private var inlineImageProvider

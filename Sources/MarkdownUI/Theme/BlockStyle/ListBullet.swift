@@ -1,4 +1,5 @@
 import SwiftUI
+import MarkdownUICore
 
 struct ListBullet: View {
   private let image: Image

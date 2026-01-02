@@ -1,4 +1,5 @@
 import Foundation
+import MarkdownUICore
 
 /// A text style that sets paragraph spacing for soft break rendering.
 ///

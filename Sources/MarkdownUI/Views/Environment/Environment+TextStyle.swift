@@ -1,4 +1,5 @@
 import SwiftUI
+import MarkdownUICore
 
 extension View {
   /// Sets the default text style for the Markdown inlines in a view hierarchy.

@@ -1,12 +1,12 @@
 import Foundation
 import CoreGraphics
 
-struct RawImageData: Hashable {
-  var source: String
-  var alt: String
-  var destination: String?
-  var maxWidth: CGFloat?
-  var maxHeight: CGFloat?
+public struct RawImageData: Hashable {
+  public var source: String
+  public var alt: String
+  public var destination: String?
+  public var maxWidth: CGFloat?
+  public var maxHeight: CGFloat?
 }
 
 /// Parses Obsidian-style image dimensions from alt text.
@@ -50,7 +50,7 @@ private func parseImageDimensions(from altText: String) -> (cleanAlt: String, ma
   return (cleanAlt, width, height)
 }
 
-extension InlineNode {
+public extension InlineNode {
   var imageData: RawImageData? {
     switch self {
     case .image(let source, let children):

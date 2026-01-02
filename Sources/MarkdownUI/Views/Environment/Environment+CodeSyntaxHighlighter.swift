@@ -1,4 +1,5 @@
 import SwiftUI
+import MarkdownUICore
 
 extension View {
   /// Sets the code syntax highlighter for the Markdown code blocks in a view hierarchy.

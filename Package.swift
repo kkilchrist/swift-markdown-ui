@@ -15,7 +15,11 @@ let package = Package(
     .library(
       name: "MarkdownUI",
       targets: ["MarkdownUI"]
-    )
+    ),
+    .library(
+      name: "MarkdownUICore",
+      targets: ["MarkdownUICore"]
+    ),
   ],
   dependencies: [
     .package(url: "https://github.com/gonzalezreal/NetworkImage", from: "6.0.0"),
@@ -23,9 +27,19 @@ let package = Package(
     .package(url: "https://github.com/swiftlang/swift-cmark", from: "0.4.0"),
   ],
   targets: [
+    // Core target: parsing and HTML rendering without SwiftUI
+    .target(
+      name: "MarkdownUICore",
+      dependencies: [
+        .product(name: "cmark-gfm", package: "swift-cmark"),
+        .product(name: "cmark-gfm-extensions", package: "swift-cmark"),
+      ]
+    ),
+    // Full target: SwiftUI views and rendering
     .target(
       name: "MarkdownUI",
       dependencies: [
+        "MarkdownUICore",
         .product(name: "cmark-gfm", package: "swift-cmark"),
         .product(name: "cmark-gfm-extensions", package: "swift-cmark"),
         .product(name: "NetworkImage", package: "NetworkImage"),
@@ -38,6 +52,12 @@ let package = Package(
         .product(name: "SnapshotTesting", package: "swift-snapshot-testing"),
       ],
       exclude: ["__Snapshots__"]
+    ),
+    .testTarget(
+      name: "MarkdownUICoreTests",
+      dependencies: [
+        "MarkdownUICore",
+      ]
     ),
   ]
 )

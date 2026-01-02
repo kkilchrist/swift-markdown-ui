@@ -1,4 +1,5 @@
 import Foundation
+import MarkdownUICore
 
 /// A line break in a Markdown content block.
 ///

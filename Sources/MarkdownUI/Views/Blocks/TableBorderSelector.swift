@@ -1,4 +1,5 @@
 import SwiftUI
+import MarkdownUICore
 
 /// A type that selects the visible borders on a Markdown table.
 ///

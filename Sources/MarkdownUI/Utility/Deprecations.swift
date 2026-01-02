@@ -1,4 +1,5 @@
 import SwiftUI
+import MarkdownUICore
 
 // MARK: - Deprecated after 2.1.0:
 

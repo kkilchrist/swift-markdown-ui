@@ -1,4 +1,5 @@
 import Foundation
+import MarkdownUICore
 
 enum FontPropertiesAttribute: AttributedStringKey {
   typealias Value = FontProperties

@@ -1,4 +1,5 @@
 import Foundation
+import MarkdownUICore
 
 /// A protocol that represents any Markdown content.
 public protocol MarkdownContentProtocol {

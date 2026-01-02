@@ -1,4 +1,5 @@
 import SwiftUI
+import MarkdownUICore
 
 extension Theme {
   /// The default Markdown theme.

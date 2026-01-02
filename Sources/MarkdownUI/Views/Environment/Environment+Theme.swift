@@ -1,4 +1,5 @@
 import SwiftUI
+import MarkdownUICore
 
 extension View {
   /// Sets the current ``Theme`` for the Markdown contents in a view hierarchy.

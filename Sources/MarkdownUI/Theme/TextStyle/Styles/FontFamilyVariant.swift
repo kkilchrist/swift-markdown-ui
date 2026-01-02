@@ -1,4 +1,5 @@
 import Foundation
+import MarkdownUICore
 
 /// A text style that adjusts the font to use an alternate variant.
 public struct FontFamilyVariant: TextStyle {

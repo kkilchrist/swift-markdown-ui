@@ -1,4 +1,5 @@
 import SwiftUI
+import MarkdownUICore
 
 /// The properties of a task list marker in a Markdown list.
 ///

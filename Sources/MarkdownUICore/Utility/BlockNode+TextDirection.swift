@@ -1,11 +1,11 @@
 import Foundation
 
-extension BlockNode {
+public extension BlockNode {
   /// Detects the text direction for this block based on its content.
   ///
   /// Uses the Unicode Bidirectional Algorithm to find the first strong
   /// directional character in the block's text content.
-  var textDirection: TextDirection {
+  public var textDirection: TextDirection {
     TextDirection.detect(from: self.plainTextContent)
   }
 

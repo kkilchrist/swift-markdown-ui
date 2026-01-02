@@ -1,10 +1,10 @@
 import Foundation
 
-struct HTMLTag {
-  let name: String
+public struct HTMLTag {
+  public let name: String
 }
 
-extension HTMLTag {
+public extension HTMLTag {
   private enum Constants {
     static let tagExpression = try! NSRegularExpression(pattern: "<\\/?([a-zA-Z0-9]+)[^>]*>")
   }

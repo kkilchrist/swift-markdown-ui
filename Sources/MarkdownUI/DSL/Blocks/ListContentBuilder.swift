@@ -1,4 +1,5 @@
 import Foundation
+import MarkdownUICore
 
 /// A result builder that you can use to compose bulleted and numbered lists.
 ///

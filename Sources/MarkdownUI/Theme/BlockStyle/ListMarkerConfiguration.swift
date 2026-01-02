@@ -1,4 +1,5 @@
 import SwiftUI
+import MarkdownUICore
 
 /// The properties of a list marker in a markdown list.
 ///

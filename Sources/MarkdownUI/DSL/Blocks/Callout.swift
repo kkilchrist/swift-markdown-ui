@@ -1,4 +1,5 @@
 import Foundation
+import MarkdownUICore
 
 /// An Obsidian-style callout block element.
 ///

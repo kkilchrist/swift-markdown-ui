@@ -1,4 +1,5 @@
 import SwiftUI
+import MarkdownUICore
 
 /// A type that provides a view that asynchronously loads and displays an image in a Markdown view.
 ///

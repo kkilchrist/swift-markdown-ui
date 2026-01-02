@@ -1,4 +1,5 @@
 import Foundation
+import MarkdownUICore
 
 /// An image in a Markdown content block.
 ///

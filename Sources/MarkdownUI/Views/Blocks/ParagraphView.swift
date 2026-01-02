@@ -1,4 +1,5 @@
 import SwiftUI
+import MarkdownUICore
 
 struct ParagraphView: View {
   @Environment(\.theme.paragraph) private var paragraph

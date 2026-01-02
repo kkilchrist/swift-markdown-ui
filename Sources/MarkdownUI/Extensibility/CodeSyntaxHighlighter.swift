@@ -1,4 +1,5 @@
 import SwiftUI
+import MarkdownUICore
 
 /// A type that provides syntax highlighting to code blocks in a Markdown view.
 ///

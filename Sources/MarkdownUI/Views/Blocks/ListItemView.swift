@@ -1,4 +1,5 @@
 import SwiftUI
+import MarkdownUICore
 
 struct ListItemView: View {
   @Environment(\.theme.listItem) private var listItem

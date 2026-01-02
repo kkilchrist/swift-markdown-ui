@@ -1,4 +1,5 @@
 import SwiftUI
+import MarkdownUICore
 
 /// The characteristics of a font.
 public struct FontProperties: Hashable {

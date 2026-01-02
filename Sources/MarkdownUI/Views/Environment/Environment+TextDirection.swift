@@ -1,4 +1,5 @@
 import SwiftUI
+import MarkdownUICore
 
 /// The text direction mode for Markdown content.
 public enum MarkdownTextDirectionMode: Sendable {

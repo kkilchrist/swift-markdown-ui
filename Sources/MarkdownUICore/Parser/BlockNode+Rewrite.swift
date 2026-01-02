@@ -1,17 +1,17 @@
 import Foundation
 
-extension Sequence where Element == BlockNode {
-  func rewrite(_ r: (BlockNode) throws -> [BlockNode]) rethrows -> [BlockNode] {
+public extension Sequence where Element == BlockNode {
+  public func rewrite(_ r: (BlockNode) throws -> [BlockNode]) rethrows -> [BlockNode] {
     try self.flatMap { try $0.rewrite(r) }
   }
 
-  func rewrite(_ r: (InlineNode) throws -> [InlineNode]) rethrows -> [BlockNode] {
+  public func rewrite(_ r: (InlineNode) throws -> [InlineNode]) rethrows -> [BlockNode] {
     try self.flatMap { try $0.rewrite(r) }
   }
 }
 
-extension BlockNode {
-  func rewrite(_ r: (BlockNode) throws -> [BlockNode]) rethrows -> [BlockNode] {
+public extension BlockNode {
+  public func rewrite(_ r: (BlockNode) throws -> [BlockNode]) rethrows -> [BlockNode] {
     switch self {
     case .blockquote(let children):
       return try r(.blockquote(children: children.rewrite(r)))
@@ -50,7 +50,7 @@ extension BlockNode {
     }
   }
 
-  func rewrite(_ r: (InlineNode) throws -> [InlineNode]) rethrows -> [BlockNode] {
+  public func rewrite(_ r: (InlineNode) throws -> [InlineNode]) rethrows -> [BlockNode] {
     switch self {
     case .blockquote(let children):
       return [.blockquote(children: try children.rewrite(r))]

@@ -1,4 +1,5 @@
 import SwiftUI
+import MarkdownUICore
 
 /// A type that applies a custom background to tables in a Markdown view.
 ///

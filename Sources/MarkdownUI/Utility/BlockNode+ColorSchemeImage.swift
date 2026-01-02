@@ -1,4 +1,5 @@
 import SwiftUI
+import MarkdownUICore
 
 extension Sequence where Element == BlockNode {
   func filterImagesMatching(colorScheme: ColorScheme) -> [BlockNode] {

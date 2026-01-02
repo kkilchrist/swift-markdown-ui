@@ -1,7 +1,8 @@
 import SwiftUI
+import MarkdownUICore
 
 extension BlockNode: View {
-  var body: some View {
+  public var body: some View {
     DirectionalBlockView(block: self)
   }
 }

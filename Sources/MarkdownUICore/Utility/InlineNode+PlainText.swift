@@ -1,7 +1,7 @@
 import Foundation
 
-extension Sequence where Element == InlineNode {
-  func renderPlainText() -> String {
+public extension Sequence where Element == InlineNode {
+  public func renderPlainText() -> String {
     self.collect { inline in
       switch inline {
       case .text(let content):

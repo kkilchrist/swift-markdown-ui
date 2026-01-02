@@ -1,4 +1,5 @@
 import SwiftUI
+import MarkdownUICore
 
 extension Font {
   static func withProperties(_ fontProperties: FontProperties) -> Font {

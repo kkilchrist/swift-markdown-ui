@@ -1,4 +1,5 @@
 import SwiftUI
+import MarkdownUICore
 
 /// An inline image provider that loads images from resources located in an app or a module.
 public struct AssetInlineImageProvider: InlineImageProvider {

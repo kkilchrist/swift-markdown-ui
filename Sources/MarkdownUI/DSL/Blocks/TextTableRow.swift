@@ -1,4 +1,5 @@
 import Foundation
+import MarkdownUICore
 
 /// A row that represents a data value in a table.
 ///

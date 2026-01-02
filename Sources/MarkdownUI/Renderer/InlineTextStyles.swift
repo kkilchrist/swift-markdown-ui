@@ -1,4 +1,5 @@
 import Foundation
+import MarkdownUICore
 
 struct InlineTextStyles {
   let code: TextStyle

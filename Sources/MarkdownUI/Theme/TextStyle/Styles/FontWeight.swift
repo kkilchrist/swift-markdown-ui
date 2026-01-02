@@ -1,4 +1,5 @@
 import SwiftUI
+import MarkdownUICore
 
 /// A text style that adjusts the font weight.
 public struct FontWeight: TextStyle {

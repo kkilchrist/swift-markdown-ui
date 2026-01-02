@@ -1,4 +1,5 @@
 import SwiftUI
+import MarkdownUICore
 
 extension EnvironmentValues {
   var listLevel: Int {

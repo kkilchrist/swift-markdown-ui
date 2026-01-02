@@ -1,4 +1,5 @@
 import SwiftUI
+import MarkdownUICore
 
 struct BulletedListView: View {
   @Environment(\.theme.list) private var list

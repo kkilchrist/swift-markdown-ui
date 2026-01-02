@@ -1,4 +1,5 @@
 import SwiftUI
+import MarkdownUICore
 
 struct TableBackgroundView: View {
   @Environment(\.tableBackgroundStyle) private var tableBackgroundStyle

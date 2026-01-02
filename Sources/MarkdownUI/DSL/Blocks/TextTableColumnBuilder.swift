@@ -1,4 +1,5 @@
 import Foundation
+import MarkdownUICore
 
 /// A result builder that creates table columns from closures.
 ///

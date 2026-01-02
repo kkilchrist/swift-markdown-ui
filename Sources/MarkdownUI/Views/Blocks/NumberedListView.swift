@@ -1,4 +1,5 @@
 import SwiftUI
+import MarkdownUICore
 
 struct NumberedListView: View {
   @Environment(\.theme.list) private var list

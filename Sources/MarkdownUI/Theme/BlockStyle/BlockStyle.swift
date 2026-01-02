@@ -1,4 +1,5 @@
 import SwiftUI
+import MarkdownUICore
 
 /// A type that applies a custom appearance to specific types of blocks in a Markdown view.
 ///

@@ -1,4 +1,5 @@
 import SwiftUI
+import MarkdownUICore
 
 extension Color {
   /// Creates a constant color from an RGBA value.

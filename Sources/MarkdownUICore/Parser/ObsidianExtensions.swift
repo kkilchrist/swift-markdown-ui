@@ -14,16 +14,16 @@ private let highlightClosePlaceholder = "\u{E002}"
 /// Unicode Private Use Area range (U+E000 to U+F8FF)
 private let privateUseAreaRange: ClosedRange<Unicode.Scalar> = "\u{E000}"..."\u{F8FF}"
 
-extension String {
+public extension String {
   /// Strips Unicode Private Use Area characters from the string.
   /// These characters are reserved for application-specific use and shouldn't appear in normal text.
-  func strippingPrivateUseAreaCharacters() -> String {
+  public func strippingPrivateUseAreaCharacters() -> String {
     String(self.unicodeScalars.filter { !privateUseAreaRange.contains($0) })
   }
   /// Protects highlight syntax (==text==) from cmark parsing by replacing == markers with placeholders.
   /// This allows nested formatting like ==**bold**== to be parsed correctly by cmark.
   /// Returns the modified string and whether any replacements were made.
-  func protectingHighlightMarkers() -> (result: String, hasHighlights: Bool) {
+  public func protectingHighlightMarkers() -> (result: String, hasHighlights: Bool) {
     // Pattern matches ==content== where content is non-empty and doesn't span multiple lines
     // Using non-greedy match to find the closest ==
     let pattern = #"==([^=\n]+?)==(?!=)"#
@@ -57,7 +57,7 @@ extension String {
   /// Returns the modified string and whether any replacements were made.
   ///
   /// Matches patterns like: ![alt|100](url) or ![alt|100x200](url)
-  func protectingImageDimensions() -> (result: String, hasImageDimensions: Bool) {
+  public func protectingImageDimensions() -> (result: String, hasImageDimensions: Bool) {
     // Pattern matches ![...](...)  where the alt text contains |
     // We need to be careful to match balanced brackets
     let pattern = #"!\[([^\]]*\|[^\]]*)\]\(([^)]+)\)"#
@@ -93,16 +93,16 @@ extension String {
   }
 }
 
-extension Array where Element == BlockNode {
+public extension Array where Element == BlockNode {
   /// Restores image dimension placeholders back to | characters.
-  func restoringImageDimensions() -> [BlockNode] {
+  public func restoringImageDimensions() -> [BlockNode] {
     self.map { block in
       block.restoringImageDimensions()
     }
   }
 }
 
-extension BlockNode {
+public extension BlockNode {
   /// Restores image dimension placeholders in this block.
   fileprivate func restoringImageDimensions() -> BlockNode {
     switch self {
@@ -155,14 +155,14 @@ extension BlockNode {
   }
 }
 
-extension Array where Element == InlineNode {
+public extension Array where Element == InlineNode {
   /// Restores image dimension placeholders in inline nodes.
   fileprivate func restoringImageDimensions() -> [InlineNode] {
     self.map { $0.restoringImageDimensions() }
   }
 }
 
-extension InlineNode {
+public extension InlineNode {
   /// Restores image dimension placeholders in this inline node.
   fileprivate func restoringImageDimensions() -> InlineNode {
     switch self {
@@ -196,10 +196,10 @@ extension InlineNode {
 
 // MARK: - Highlight Syntax (==text==)
 
-extension Array where Element == InlineNode {
+public extension Array where Element == InlineNode {
   /// Restores highlight placeholders back into proper .highlight nodes.
   /// This handles nested formatting correctly by collecting all nodes between open/close markers.
-  func restoringHighlightMarkers() -> [InlineNode] {
+  public func restoringHighlightMarkers() -> [InlineNode] {
     var results: [InlineNode] = []
     var highlightBuffer: [InlineNode]? = nil  // nil means not in highlight, [] means collecting
     var i = 0
@@ -378,9 +378,9 @@ private func processTextForHighlightMarkers(
 
 // MARK: - Callout Syntax (> [!type])
 
-extension Array where Element == BlockNode {
+public extension Array where Element == BlockNode {
   /// Rewrites blockquotes that start with [!type] into .callout nodes.
-  func applyCalloutSyntax() -> [BlockNode] {
+  public func applyCalloutSyntax() -> [BlockNode] {
     self.flatMap { node -> [BlockNode] in
       switch node {
       case .blockquote(let children):
@@ -585,9 +585,9 @@ private func parseGitHubCallout(inlines: [InlineNode], children: [BlockNode]) ->
 
 // MARK: - Combined Extension Application
 
-extension Array where Element == BlockNode {
+public extension Array where Element == BlockNode {
   /// Applies all Obsidian markdown extensions (callouts and highlights).
-  func applyObsidianExtensions() -> [BlockNode] {
+  public func applyObsidianExtensions() -> [BlockNode] {
     self
       .applyCalloutSyntax()
       .restoringHighlightMarkersInBlocks()

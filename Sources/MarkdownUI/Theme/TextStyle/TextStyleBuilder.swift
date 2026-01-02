@@ -1,4 +1,5 @@
 import Foundation
+import MarkdownUICore
 
 /// A result builder you can use to compose text styles.
 @resultBuilder public enum TextStyleBuilder {

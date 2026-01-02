@@ -1,4 +1,5 @@
 import SwiftUI
+import MarkdownUICore
 
 struct ListItemSequence: View {
   private let items: [RawListItem]
