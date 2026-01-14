@@ -10,7 +10,7 @@ struct InlineText: View {
   @Environment(\.theme) private var theme
 
   @State private var inlineImages: [String: Image] = [:]
-  @State private var mathImages: [String: Image] = [:]
+  @State private var renderedMath: [String: RenderedMath] = [:]
 
   private let inlines: [InlineNode]
 
@@ -33,7 +33,7 @@ struct InlineText: View {
     }
     .task(id: self.inlines) {
       self.inlineImages = (try? await self.loadInlineImages()) ?? [:]
-      self.mathImages = await self.loadMathImages()
+      self.renderedMath = await self.loadRenderedMath()
     }
   }
 
@@ -78,7 +78,7 @@ struct InlineText: View {
       baseURL: self.baseURL,
       textStyles: self.textStyles,
       images: self.inlineImages,
-      mathImages: self.mathImages,
+      renderedMath: self.renderedMath,
       softBreakMode: self.softBreakMode,
       attributes: attributes,
       fontProperties: attributes.fontProperties
@@ -90,7 +90,7 @@ struct InlineText: View {
       baseURL: self.baseURL,
       textStyles: self.textStyles,
       images: self.inlineImages,
-      mathImages: self.mathImages,
+      renderedMath: self.renderedMath,
       softBreakMode: self.softBreakMode,
       attributes: attributes,
       fontProperties: attributes.fontProperties
@@ -134,17 +134,17 @@ struct InlineText: View {
     }
   }
 
-  private func loadMathImages() async -> [String: Image] {
+  private func loadRenderedMath() async -> [String: RenderedMath] {
     // Extract unique math expressions from inlines
     let mathExpressions = Set(self.inlines.compactMap(\.mathContent))
     guard !mathExpressions.isEmpty else { return [:] }
 
-    return await withTaskGroup(of: (String, Image?).self) { taskGroup in
+    return await withTaskGroup(of: (String, RenderedMath?).self) { taskGroup in
       for math in mathExpressions {
         taskGroup.addTask {
           do {
-            let image = try await self.inlineMathProvider.image(for: math)
-            return (math, image)
+            let rendered = try await self.inlineMathProvider.renderedMath(for: math)
+            return (math, rendered)
           } catch {
             // Provider threw (e.g., default provider) - fall back to text rendering
             return (math, nil)
@@ -152,15 +152,15 @@ struct InlineText: View {
         }
       }
 
-      var mathImages: [String: Image] = [:]
+      var results: [String: RenderedMath] = [:]
 
       for await result in taskGroup {
-        if let image = result.1 {
-          mathImages[result.0] = image
+        if let rendered = result.1 {
+          results[result.0] = rendered
         }
       }
 
-      return mathImages
+      return results
     }
   }
 }

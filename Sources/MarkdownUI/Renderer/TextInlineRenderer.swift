@@ -13,7 +13,7 @@ extension Sequence where Element == InlineNode {
     baseURL: URL?,
     textStyles: InlineTextStyles,
     images: [String: Image],
-    mathImages: [String: Image],
+    renderedMath: [String: RenderedMath],
     softBreakMode: SoftBreak.Mode,
     attributes: AttributeContainer,
     fontProperties: FontProperties? = nil
@@ -22,7 +22,7 @@ extension Sequence where Element == InlineNode {
       baseURL: baseURL,
       textStyles: textStyles,
       images: images,
-      mathImages: mathImages,
+      renderedMath: renderedMath,
       softBreakMode: softBreakMode,
       attributes: attributes,
       fontProperties: fontProperties
@@ -38,7 +38,7 @@ private struct TextInlineRenderer {
   private let baseURL: URL?
   private let textStyles: InlineTextStyles
   private let images: [String: Image]
-  private let mathImages: [String: Image]
+  private let renderedMath: [String: RenderedMath]
   private let softBreakMode: SoftBreak.Mode
   private let attributes: AttributeContainer
   private let fontProperties: FontProperties?
@@ -49,7 +49,7 @@ private struct TextInlineRenderer {
     baseURL: URL?,
     textStyles: InlineTextStyles,
     images: [String: Image],
-    mathImages: [String: Image],
+    renderedMath: [String: RenderedMath],
     softBreakMode: SoftBreak.Mode,
     attributes: AttributeContainer,
     fontProperties: FontProperties? = nil
@@ -57,7 +57,7 @@ private struct TextInlineRenderer {
     self.baseURL = baseURL
     self.textStyles = textStyles
     self.images = images
-    self.mathImages = mathImages
+    self.renderedMath = renderedMath
     self.softBreakMode = softBreakMode
     self.attributes = attributes
     self.fontProperties = fontProperties
@@ -152,9 +152,9 @@ private struct TextInlineRenderer {
   }
 
   private mutating func renderMath(_ math: String) {
-    if let image = self.mathImages[math] {
-      // Render as inline image if pre-rendered
-      self.result = self.result + Text(image)
+    if let rendered = self.renderedMath[math] {
+      // Render as inline image with baseline offset for proper alignment
+      self.result = self.result + Text(rendered.image).baselineOffset(rendered.baselineOffset)
     } else {
       // Fall back to monospace text (default rendering)
       self.defaultRender(.math(math))
