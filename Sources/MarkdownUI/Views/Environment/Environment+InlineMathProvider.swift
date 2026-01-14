@@ -28,14 +28,22 @@ private struct InlineMathProviderKey: EnvironmentKey {
 /// Type-erased wrapper for InlineMathProvider
 struct AnyInlineMathProvider: InlineMathProvider {
     private let _image: (String) async throws -> Image
+    private let _renderedMath: (String) async throws -> RenderedMath
 
     init(_ provider: some InlineMathProvider) {
         self._image = { math in
             try await provider.image(for: math)
         }
+        self._renderedMath = { math in
+            try await provider.renderedMath(for: math)
+        }
     }
 
     func image(for math: String) async throws -> Image {
         try await _image(math)
+    }
+
+    func renderedMath(for math: String) async throws -> RenderedMath {
+        try await _renderedMath(math)
     }
 }
