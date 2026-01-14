@@ -12,8 +12,10 @@ The upstream MarkdownUI library is in [maintenance mode](https://github.com/gonz
 
 - **Highlight syntax** (`==highlighted text==`) — Obsidian-style
 - **Callout blocks** (`> [!note]`, `> [!warning]`, etc.) — Obsidian-style
+- **Inline math** (`$E = mc^2$`) — LaTeX-style delimiters
 - **Per-block RTL support** — automatic text direction detection
-- **HTML export** — `renderExtendedHTML()` for highlights and callouts
+- **Custom providers** — `CodeBlockProvider` and `InlineMathProvider` for extensibility
+- **HTML export** — `renderExtendedHTML()` for highlights, callouts, and math
 
 These extensions integrate cleanly with MarkdownUI's existing theming system and require no preprocessing of your markdown content.
 
@@ -120,6 +122,60 @@ Markdown(content)
   }
 ```
 
+### Inline Math
+
+Render inline math expressions using `$...$` delimiters:
+
+```swift
+Markdown("The famous equation $E = mc^2$ shows mass-energy equivalence.")
+```
+
+By default, math is rendered as monospace text. For proper LaTeX rendering, provide a custom `InlineMathProvider` (see [Extensibility](#extensibility) below).
+
+## Extensibility
+
+### CodeBlockProvider
+
+Render code blocks with specific languages as custom views (e.g., Mermaid diagrams, math blocks, chemical structures):
+
+```swift
+struct MyCodeBlockProvider: CodeBlockProvider {
+    func makeBody(language: String?, content: String) -> AnyView? {
+        switch language {
+        case "mermaid":
+            return AnyView(MermaidView(content: content))
+        case "math":
+            return AnyView(LaTeXBlockView(content: content))
+        default:
+            return nil  // Use default code rendering
+        }
+    }
+}
+
+Markdown(document)
+    .markdownCodeBlockProvider(MyCodeBlockProvider())
+```
+
+### InlineMathProvider
+
+Render inline math (`$...$`) as images for proper LaTeX display:
+
+```swift
+struct KaTeXMathProvider: InlineMathProvider {
+    func renderedMath(for math: String) async throws -> RenderedMath {
+        let (image, baselineOffset) = try await renderWithKaTeX(math)
+        return RenderedMath(image: image, baselineOffset: baselineOffset)
+    }
+}
+
+Markdown(document)
+    .markdownInlineMathProvider(KaTeXMathProvider())
+```
+
+The `RenderedMath` struct includes a `baselineOffset` for proper vertical alignment with surrounding text. Negative values shift the image down (useful for subscripts and fractions).
+
+If `renderedMath(for:)` throws, the math falls back to monospace text rendering.
+
 ## HTML Export
 
 For PDF generation or other HTML-based pipelines, use `renderExtendedHTML()`:
@@ -131,6 +187,7 @@ let html = content.renderExtendedHTML()
 
 This renders proper HTML with:
 - `<mark>` tags for highlights
+- `<span class="math">` for inline math expressions
 - Styled `<div>` elements for callouts with CSS classes
 - All standard markdown elements
 
