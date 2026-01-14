@@ -171,6 +171,10 @@ public extension InlineNode {
     case .code(let content):
       return "<code>\(content.htmlEscaped)</code>"
 
+    case .math(let content):
+      // Render math in a span with class for styling
+      return "<span class=\"math\">\(content.htmlEscaped)</span>"
+
     case .html(let content):
       return content
 
@@ -214,7 +218,7 @@ public extension InlineNode {
       return content
     case .softBreak, .lineBreak:
       return " "
-    case .code(let content):
+    case .code(let content), .math(let content):
       return content
     case .html:
       return ""

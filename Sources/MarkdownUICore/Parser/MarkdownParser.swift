@@ -11,9 +11,12 @@ public extension Array where Element == BlockNode {
     // This allows nested formatting like ==**bold**== to be parsed correctly
     let (withHighlights, _) = sanitized.protectingHighlightMarkers()
 
+    // Preprocess: protect inline math markers ($...$) before cmark parsing
+    let (withMath, _) = withHighlights.protectingInlineMathMarkers()
+
     // Preprocess: protect image dimension syntax from table parser
     // Replace | inside ![alt|dimensions](url) with a placeholder before cmark parsing
-    let (preprocessed, hasImageDimensions) = withHighlights.protectingImageDimensions()
+    let (preprocessed, hasImageDimensions) = withMath.protectingImageDimensions()
 
     let blocks = UnsafeNode.parseMarkdown(preprocessed) { document in
       document.children.compactMap(BlockNode.init(unsafeNode:))
@@ -451,6 +454,11 @@ public extension UnsafeNode {
       }.joined()
       cmark_node_set_literal(container, "==\(innerText)==")
       return container
+    case .math(let content):
+      // Render math as $content$ when converting back to markdown
+      guard let node = cmark_node_new(CMARK_NODE_TEXT) else { return nil }
+      cmark_node_set_literal(node, "$\(content)$")
+      return node
     case .link(let destination, let children):
       guard let node = cmark_node_new(CMARK_NODE_LINK) else { return nil }
       cmark_node_set_url(node, destination)

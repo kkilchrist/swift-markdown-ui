@@ -11,6 +11,10 @@ private let imageDimensionPlaceholder = "\u{E000}"
 private let highlightOpenPlaceholder = "\u{E001}"
 private let highlightClosePlaceholder = "\u{E002}"
 
+/// Placeholder characters for inline math markers ($...$) to protect them from cmark parsing.
+private let mathOpenPlaceholder = "\u{E003}"
+private let mathClosePlaceholder = "\u{E004}"
+
 /// Unicode Private Use Area range (U+E000 to U+F8FF)
 private let privateUseAreaRange: ClosedRange<Unicode.Scalar> = "\u{E000}"..."\u{F8FF}"
 
@@ -45,6 +49,44 @@ public extension String {
 
       let content = String(result[contentRange])
       let replacement = "\(highlightOpenPlaceholder)\(content)\(highlightClosePlaceholder)"
+
+      result.replaceSubrange(fullRange, with: replacement)
+      hasReplacements = true
+    }
+
+    return (result, hasReplacements)
+  }
+
+  /// Protects inline math syntax ($...$) from cmark parsing by replacing $ markers with placeholders.
+  /// This prevents cmark from treating dollar signs as regular text and allows proper math detection.
+  /// Returns the modified string and whether any replacements were made.
+  ///
+  /// Note: This only matches single $ delimiters (inline math), not $$ (display math).
+  public func protectingInlineMathMarkers() -> (result: String, hasInlineMath: Bool) {
+    // Pattern matches $content$ where:
+    // - Not preceded by $ (avoids $$)
+    // - Content is non-empty and doesn't contain $ or newlines
+    // - Not followed by $ (avoids $$)
+    // Using negative lookbehind/lookahead for $$ detection
+    let pattern = #"(?<!\$)\$([^$\n]+?)\$(?!\$)"#
+
+    guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else {
+      return (self, false)
+    }
+
+    var result = self
+    var hasReplacements = false
+    let nsRange = NSRange(self.startIndex..., in: self)
+
+    // Process matches in reverse order to maintain correct indices
+    let matches = regex.matches(in: self, options: [], range: nsRange).reversed()
+
+    for match in matches {
+      guard let fullRange = Range(match.range, in: result),
+            let contentRange = Range(match.range(at: 1), in: result) else { continue }
+
+      let content = String(result[contentRange])
+      let replacement = "\(mathOpenPlaceholder)\(content)\(mathClosePlaceholder)"
 
       result.replaceSubrange(fullRange, with: replacement)
       hasReplacements = true
@@ -376,6 +418,81 @@ private func processTextForHighlightMarkers(
   return output
 }
 
+// MARK: - Inline Math Syntax ($...$)
+
+public extension Array where Element == InlineNode {
+  /// Restores math placeholders back into proper .math nodes.
+  /// Math content is a leaf node (like .code), so doesn't support nested formatting.
+  public func restoringMathMarkers() -> [InlineNode] {
+    self.flatMap { node -> [InlineNode] in
+      switch node {
+      case .text(let content):
+        return processTextForMathMarkers(content)
+
+      case .emphasis(let children):
+        return [.emphasis(children: children.restoringMathMarkers())]
+
+      case .strong(let children):
+        return [.strong(children: children.restoringMathMarkers())]
+
+      case .strikethrough(let children):
+        return [.strikethrough(children: children.restoringMathMarkers())]
+
+      case .highlight(let children):
+        return [.highlight(children: children.restoringMathMarkers())]
+
+      case .link(let destination, let children):
+        return [.link(destination: destination, children: children.restoringMathMarkers())]
+
+      case .image(let source, let children):
+        return [.image(source: source, children: children.restoringMathMarkers())]
+
+      default:
+        return [node]
+      }
+    }
+  }
+}
+
+/// Processes a text node for math placeholders and returns the resulting inline nodes.
+private func processTextForMathMarkers(_ text: String) -> [InlineNode] {
+  var results: [InlineNode] = []
+  var current = text.startIndex
+
+  while current < text.endIndex {
+    // Look for math open marker
+    if let openRange = text.range(of: mathOpenPlaceholder, range: current..<text.endIndex) {
+      // Add text before the marker
+      if current < openRange.lowerBound {
+        let before = String(text[current..<openRange.lowerBound])
+        results.append(.text(before))
+      }
+
+      // Look for the close marker
+      let searchStart = openRange.upperBound
+      if let closeRange = text.range(of: mathClosePlaceholder, range: searchStart..<text.endIndex) {
+        // Extract math content
+        let mathContent = String(text[searchStart..<closeRange.lowerBound])
+        results.append(.math(mathContent))
+        current = closeRange.upperBound
+      } else {
+        // No close marker found - treat open marker as text and continue
+        results.append(.text(mathOpenPlaceholder))
+        current = openRange.upperBound
+      }
+    } else {
+      // No more math markers - add remaining text
+      let remaining = String(text[current...])
+      if !remaining.isEmpty {
+        results.append(.text(remaining))
+      }
+      current = text.endIndex
+    }
+  }
+
+  return results
+}
+
 // MARK: - Callout Syntax (> [!type])
 
 public extension Array where Element == BlockNode {
@@ -586,56 +703,56 @@ private func parseGitHubCallout(inlines: [InlineNode], children: [BlockNode]) ->
 // MARK: - Combined Extension Application
 
 public extension Array where Element == BlockNode {
-  /// Applies all Obsidian markdown extensions (callouts and highlights).
+  /// Applies all Obsidian markdown extensions (callouts, highlights, and inline math).
   public func applyObsidianExtensions() -> [BlockNode] {
     self
       .applyCalloutSyntax()
-      .restoringHighlightMarkersInBlocks()
+      .restoringInlineMarkersInBlocks()
   }
 
-  /// Restores highlight markers in all inline content within blocks.
-  private func restoringHighlightMarkersInBlocks() -> [BlockNode] {
+  /// Restores highlight and math markers in all inline content within blocks.
+  private func restoringInlineMarkersInBlocks() -> [BlockNode] {
     self.map { block -> BlockNode in
       switch block {
       case .blockquote(let children):
-        return .blockquote(children: children.restoringHighlightMarkersInBlocks())
+        return .blockquote(children: children.restoringInlineMarkersInBlocks())
 
       case .callout(let type, let title, let children):
-        return .callout(type: type, title: title, children: children.restoringHighlightMarkersInBlocks())
+        return .callout(type: type, title: title, children: children.restoringInlineMarkersInBlocks())
 
       case .bulletedList(let isTight, let items):
         return .bulletedList(
           isTight: isTight,
-          items: items.map { RawListItem(children: $0.children.restoringHighlightMarkersInBlocks()) }
+          items: items.map { RawListItem(children: $0.children.restoringInlineMarkersInBlocks()) }
         )
 
       case .numberedList(let isTight, let start, let items):
         return .numberedList(
           isTight: isTight,
           start: start,
-          items: items.map { RawListItem(children: $0.children.restoringHighlightMarkersInBlocks()) }
+          items: items.map { RawListItem(children: $0.children.restoringInlineMarkersInBlocks()) }
         )
 
       case .taskList(let isTight, let items):
         return .taskList(
           isTight: isTight,
           items: items.map {
-            RawTaskListItem(isCompleted: $0.isCompleted, children: $0.children.restoringHighlightMarkersInBlocks())
+            RawTaskListItem(isCompleted: $0.isCompleted, children: $0.children.restoringInlineMarkersInBlocks())
           }
         )
 
       case .paragraph(let content):
-        return .paragraph(content: content.restoringHighlightMarkers())
+        return .paragraph(content: content.restoringHighlightMarkers().restoringMathMarkers())
 
       case .heading(let level, let content):
-        return .heading(level: level, content: content.restoringHighlightMarkers())
+        return .heading(level: level, content: content.restoringHighlightMarkers().restoringMathMarkers())
 
       case .table(let columnAlignments, let rows):
         return .table(
           columnAlignments: columnAlignments,
           rows: rows.map { row in
             RawTableRow(cells: row.cells.map { cell in
-              RawTableCell(content: cell.content.restoringHighlightMarkers())
+              RawTableCell(content: cell.content.restoringHighlightMarkers().restoringMathMarkers())
             })
           }
         )

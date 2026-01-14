@@ -65,6 +65,8 @@ private struct AttributedStringInlineRenderer {
       self.renderCode(content)
     case .html(let content):
       self.renderHTML(content)
+    case .math(let content):
+      self.renderMath(content)
     case .emphasis(let children):
       self.renderEmphasis(children: children)
     case .strong(let children):
@@ -120,6 +122,11 @@ private struct AttributedStringInlineRenderer {
 
   private mutating func renderCode(_ code: String) {
     self.result += .init(code, attributes: self.textStyles.code.mergingAttributes(self.attributes))
+  }
+
+  private mutating func renderMath(_ math: String) {
+    // Render math with the same style as inline code (monospace)
+    self.result += .init(math, attributes: self.textStyles.code.mergingAttributes(self.attributes))
   }
 
   private mutating func renderHTML(_ html: String) {
