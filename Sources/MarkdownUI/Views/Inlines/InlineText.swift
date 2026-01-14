@@ -3,12 +3,14 @@ import MarkdownUICore
 
 struct InlineText: View {
   @Environment(\.inlineImageProvider) private var inlineImageProvider
+  @Environment(\.inlineMathProvider) private var inlineMathProvider
   @Environment(\.baseURL) private var baseURL
   @Environment(\.imageBaseURL) private var imageBaseURL
   @Environment(\.softBreakMode) private var softBreakMode
   @Environment(\.theme) private var theme
 
   @State private var inlineImages: [String: Image] = [:]
+  @State private var mathImages: [String: Image] = [:]
 
   private let inlines: [InlineNode]
 
@@ -31,6 +33,7 @@ struct InlineText: View {
     }
     .task(id: self.inlines) {
       self.inlineImages = (try? await self.loadInlineImages()) ?? [:]
+      self.mathImages = await self.loadMathImages()
     }
   }
 
@@ -75,6 +78,7 @@ struct InlineText: View {
       baseURL: self.baseURL,
       textStyles: self.textStyles,
       images: self.inlineImages,
+      mathImages: self.mathImages,
       softBreakMode: self.softBreakMode,
       attributes: attributes,
       fontProperties: attributes.fontProperties
@@ -86,6 +90,7 @@ struct InlineText: View {
       baseURL: self.baseURL,
       textStyles: self.textStyles,
       images: self.inlineImages,
+      mathImages: self.mathImages,
       softBreakMode: self.softBreakMode,
       attributes: attributes,
       fontProperties: attributes.fontProperties
@@ -126,6 +131,36 @@ struct InlineText: View {
       }
 
       return inlineImages
+    }
+  }
+
+  private func loadMathImages() async -> [String: Image] {
+    // Extract unique math expressions from inlines
+    let mathExpressions = Set(self.inlines.compactMap(\.mathContent))
+    guard !mathExpressions.isEmpty else { return [:] }
+
+    return await withTaskGroup(of: (String, Image?).self) { taskGroup in
+      for math in mathExpressions {
+        taskGroup.addTask {
+          do {
+            let image = try await self.inlineMathProvider.image(for: math)
+            return (math, image)
+          } catch {
+            // Provider threw (e.g., default provider) - fall back to text rendering
+            return (math, nil)
+          }
+        }
+      }
+
+      var mathImages: [String: Image] = [:]
+
+      for await result in taskGroup {
+        if let image = result.1 {
+          mathImages[result.0] = image
+        }
+      }
+
+      return mathImages
     }
   }
 }

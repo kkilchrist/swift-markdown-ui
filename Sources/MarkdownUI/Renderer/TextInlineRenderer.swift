@@ -13,6 +13,7 @@ extension Sequence where Element == InlineNode {
     baseURL: URL?,
     textStyles: InlineTextStyles,
     images: [String: Image],
+    mathImages: [String: Image],
     softBreakMode: SoftBreak.Mode,
     attributes: AttributeContainer,
     fontProperties: FontProperties? = nil
@@ -21,6 +22,7 @@ extension Sequence where Element == InlineNode {
       baseURL: baseURL,
       textStyles: textStyles,
       images: images,
+      mathImages: mathImages,
       softBreakMode: softBreakMode,
       attributes: attributes,
       fontProperties: fontProperties
@@ -36,6 +38,7 @@ private struct TextInlineRenderer {
   private let baseURL: URL?
   private let textStyles: InlineTextStyles
   private let images: [String: Image]
+  private let mathImages: [String: Image]
   private let softBreakMode: SoftBreak.Mode
   private let attributes: AttributeContainer
   private let fontProperties: FontProperties?
@@ -46,6 +49,7 @@ private struct TextInlineRenderer {
     baseURL: URL?,
     textStyles: InlineTextStyles,
     images: [String: Image],
+    mathImages: [String: Image],
     softBreakMode: SoftBreak.Mode,
     attributes: AttributeContainer,
     fontProperties: FontProperties? = nil
@@ -53,6 +57,7 @@ private struct TextInlineRenderer {
     self.baseURL = baseURL
     self.textStyles = textStyles
     self.images = images
+    self.mathImages = mathImages
     self.softBreakMode = softBreakMode
     self.attributes = attributes
     self.fontProperties = fontProperties
@@ -76,6 +81,8 @@ private struct TextInlineRenderer {
       self.renderHTML(content)
     case .image(let source, _):
       self.renderImage(source)
+    case .math(let content):
+      self.renderMath(content)
     default:
       self.defaultRender(inline)
     }
@@ -141,6 +148,16 @@ private struct TextInlineRenderer {
   private mutating func renderImage(_ source: String) {
     if let image = self.images[source] {
       self.result = self.result + Text(image)
+    }
+  }
+
+  private mutating func renderMath(_ math: String) {
+    if let image = self.mathImages[math] {
+      // Render as inline image if pre-rendered
+      self.result = self.result + Text(image)
+    } else {
+      // Fall back to monospace text (default rendering)
+      self.defaultRender(.math(math))
     }
   }
 

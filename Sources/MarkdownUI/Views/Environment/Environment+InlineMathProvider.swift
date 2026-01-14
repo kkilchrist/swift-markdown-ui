@@ -27,15 +27,15 @@ private struct InlineMathProviderKey: EnvironmentKey {
 
 /// Type-erased wrapper for InlineMathProvider
 struct AnyInlineMathProvider: InlineMathProvider {
-    private let _makeBody: (String) -> AnyView?
+    private let _image: (String) async throws -> Image
 
     init(_ provider: some InlineMathProvider) {
-        self._makeBody = { content in
-            provider.makeBody(content: content)
+        self._image = { math in
+            try await provider.image(for: math)
         }
     }
 
-    func makeBody(content: String) -> AnyView? {
-        _makeBody(content)
+    func image(for math: String) async throws -> Image {
+        try await _image(math)
     }
 }
