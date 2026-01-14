@@ -154,9 +154,11 @@ private struct TextInlineRenderer {
   private mutating func renderMath(_ math: String) {
     if let rendered = self.renderedMath[math] {
       // Render as inline image with baseline offset for proper alignment
+      print("[TextInlineRenderer] Applying baselineOffset \(rendered.baselineOffset) for math: '\(math)'")
       self.result = self.result + Text(rendered.image).baselineOffset(rendered.baselineOffset)
     } else {
       // Fall back to monospace text (default rendering)
+      print("[TextInlineRenderer] No rendered math found for: '\(math)', falling back to text")
       self.defaultRender(.math(math))
     }
   }
