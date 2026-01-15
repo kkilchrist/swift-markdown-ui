@@ -144,11 +144,9 @@ struct InlineText: View {
         taskGroup.addTask {
           do {
             let rendered = try await self.inlineMathProvider.renderedMath(for: math)
-            print("[InlineText] Loaded math '\(math)' with baselineOffset: \(rendered.baselineOffset)")
             return (math, rendered)
           } catch {
             // Provider threw (e.g., default provider) - fall back to text rendering
-            print("[InlineText] Failed to load math '\(math)': \(error)")
             return (math, nil)
           }
         }
@@ -162,7 +160,6 @@ struct InlineText: View {
         }
       }
 
-      print("[InlineText] Loaded \(results.count) rendered math expressions")
       return results
     }
   }

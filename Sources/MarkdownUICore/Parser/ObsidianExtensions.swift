@@ -473,7 +473,6 @@ private func processTextForMathMarkers(_ text: String) -> [InlineNode] {
       if let closeRange = text.range(of: mathClosePlaceholder, range: searchStart..<text.endIndex) {
         // Extract math content
         let mathContent = String(text[searchStart..<closeRange.lowerBound])
-        print("[MathParsing] Created .math node: '\(mathContent)'")
         results.append(.math(mathContent))
         current = closeRange.upperBound
       } else {
