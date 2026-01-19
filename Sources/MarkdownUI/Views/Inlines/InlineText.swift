@@ -10,9 +10,18 @@ struct InlineText: View {
   @Environment(\.theme) private var theme
 
   @State private var inlineImages: [String: Image] = [:]
-  @State private var renderedMath: [String: RenderedMath] = [:]
+  @State private var asyncLoadedMath: [String: RenderedMath] = [:]
 
   private let inlines: [InlineNode]
+
+  /// Computed property that merges cache (synchronous) with async-loaded math.
+  /// This ensures cached math is available immediately during body evaluation,
+  /// preventing flashing when the view re-renders.
+  private var renderedMath: [String: RenderedMath] {
+    var results = loadCachedMath()  // Check cache synchronously
+    results.merge(asyncLoadedMath) { _, asyncLoaded in asyncLoaded }
+    return results
+  }
 
   init(_ inlines: [InlineNode]) {
     self.inlines = inlines
@@ -33,11 +42,11 @@ struct InlineText: View {
     }
     .task(id: self.inlines) {
       self.inlineImages = (try? await self.loadInlineImages()) ?? [:]
-      // First, synchronously populate from cache to prevent flashing
-      self.renderedMath = self.loadCachedMath()
-      // Then load any uncached math asynchronously
+      // Load any uncached math asynchronously (cached math is handled by computed property)
       let uncachedMath = await self.loadUncachedRenderedMath()
-      self.renderedMath.merge(uncachedMath) { _, new in new }
+      if !uncachedMath.isEmpty {
+        self.asyncLoadedMath.merge(uncachedMath) { _, new in new }
+      }
     }
   }
 
