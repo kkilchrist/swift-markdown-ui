@@ -50,6 +50,16 @@ public protocol InlineMathProvider {
     /// Renders the given math expression as an image for inline display.
     /// - Note: Deprecated. Implement `renderedMath(for:)` instead for proper baseline alignment.
     func image(for math: String) async throws -> Image
+
+    /// Returns a cached rendered math result synchronously, if available.
+    ///
+    /// This method enables immediate display of previously-rendered math expressions
+    /// without waiting for an async render cycle. Implement this to prevent visual
+    /// flashing when math expressions are re-displayed (e.g., during live editing).
+    ///
+    /// - Parameter math: The math expression content (without the `$` delimiters).
+    /// - Returns: The cached `RenderedMath` if available, or `nil` if not cached.
+    func cachedRenderedMath(for math: String) -> RenderedMath?
 }
 
 extension InlineMathProvider {
@@ -62,6 +72,11 @@ extension InlineMathProvider {
     /// Default implementation that calls `renderedMath(for:)`.
     public func image(for math: String) async throws -> Image {
         try await renderedMath(for: math).image
+    }
+
+    /// Default implementation returns nil (no caching).
+    public func cachedRenderedMath(for math: String) -> RenderedMath? {
+        nil
     }
 }
 
@@ -77,6 +92,10 @@ public struct DefaultInlineMathProvider: InlineMathProvider {
     public func image(for math: String) async throws -> Image {
         // Throw to indicate no custom rendering - fall back to monospace text
         throw InlineMathRenderingError.noCustomProvider
+    }
+
+    public func cachedRenderedMath(for math: String) -> RenderedMath? {
+        nil
     }
 }
 

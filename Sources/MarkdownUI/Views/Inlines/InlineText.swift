@@ -33,7 +33,11 @@ struct InlineText: View {
     }
     .task(id: self.inlines) {
       self.inlineImages = (try? await self.loadInlineImages()) ?? [:]
-      self.renderedMath = await self.loadRenderedMath()
+      // First, synchronously populate from cache to prevent flashing
+      self.renderedMath = self.loadCachedMath()
+      // Then load any uncached math asynchronously
+      let uncachedMath = await self.loadUncachedRenderedMath()
+      self.renderedMath.merge(uncachedMath) { _, new in new }
     }
   }
 
@@ -134,13 +138,34 @@ struct InlineText: View {
     }
   }
 
-  private func loadRenderedMath() async -> [String: RenderedMath] {
+  /// Synchronously load math from cache - returns immediately with cached values
+  private func loadCachedMath() -> [String: RenderedMath] {
+    let mathExpressions = Set(self.inlines.compactMap(\.mathContent))
+    guard !mathExpressions.isEmpty else { return [:] }
+
+    var results: [String: RenderedMath] = [:]
+    for math in mathExpressions {
+      if let cached = self.inlineMathProvider.cachedRenderedMath(for: math) {
+        results[math] = cached
+      }
+    }
+    return results
+  }
+
+  /// Asynchronously load only math that isn't already cached
+  private func loadUncachedRenderedMath() async -> [String: RenderedMath] {
     // Extract unique math expressions from inlines
     let mathExpressions = Set(self.inlines.compactMap(\.mathContent))
     guard !mathExpressions.isEmpty else { return [:] }
 
+    // Filter to only uncached expressions
+    let uncachedExpressions = mathExpressions.filter {
+      self.inlineMathProvider.cachedRenderedMath(for: $0) == nil
+    }
+    guard !uncachedExpressions.isEmpty else { return [:] }
+
     return await withTaskGroup(of: (String, RenderedMath?).self) { taskGroup in
-      for math in mathExpressions {
+      for math in uncachedExpressions {
         taskGroup.addTask {
           do {
             let rendered = try await self.inlineMathProvider.renderedMath(for: math)

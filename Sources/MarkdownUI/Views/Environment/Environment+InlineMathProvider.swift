@@ -29,6 +29,7 @@ private struct InlineMathProviderKey: EnvironmentKey {
 struct AnyInlineMathProvider: InlineMathProvider {
     private let _image: (String) async throws -> Image
     private let _renderedMath: (String) async throws -> RenderedMath
+    private let _cachedRenderedMath: (String) -> RenderedMath?
 
     init(_ provider: some InlineMathProvider) {
         self._image = { math in
@@ -36,6 +37,9 @@ struct AnyInlineMathProvider: InlineMathProvider {
         }
         self._renderedMath = { math in
             try await provider.renderedMath(for: math)
+        }
+        self._cachedRenderedMath = { math in
+            provider.cachedRenderedMath(for: math)
         }
     }
 
@@ -45,5 +49,9 @@ struct AnyInlineMathProvider: InlineMathProvider {
 
     func renderedMath(for math: String) async throws -> RenderedMath {
         try await _renderedMath(math)
+    }
+
+    func cachedRenderedMath(for math: String) -> RenderedMath? {
+        _cachedRenderedMath(math)
     }
 }
