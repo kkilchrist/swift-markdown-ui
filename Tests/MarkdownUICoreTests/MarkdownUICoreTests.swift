@@ -516,4 +516,44 @@ final class MarkdownUICoreTests: XCTestCase {
     XCTAssertTrue(html.contains("class=\"callout callout-note\""))
     XCTAssertTrue(html.contains("<ins class=\"critic-addition\">an addition</ins>"))
   }
+
+  func testCriticMarkupInInlineCodePreservesOriginalSyntax() {
+    // Inline code should show original CriticMarkup syntax, not render it
+    let markdown = "Here is inline code: `{++addition++}` should not render."
+    let blocks = [BlockNode](markdown: markdown)
+    let html = blocks.renderExtendedHTML()
+
+    // Should contain the original syntax inside <code> tags, not rendered CriticMarkup
+    XCTAssertTrue(html.contains("<code>{++addition++}</code>"), "Expected original syntax in inline code, got: \(html)")
+    // Should NOT contain rendered CriticMarkup inside the code
+    XCTAssertFalse(html.contains("<code><ins"), "Should not render CriticMarkup inside inline code")
+  }
+
+  func testAllCriticMarkupTypesInInlineCode() {
+    // All CriticMarkup types should preserve original syntax in inline code
+    let markdown = """
+    Addition: `{++add++}`
+    Deletion: `{--del--}`
+    Substitution: `{~~old~>new~~}`
+    Comment: `{>>note<<}`
+    Highlight: `{==mark==}`
+    """
+    let blocks = [BlockNode](markdown: markdown)
+    let html = blocks.renderExtendedHTML()
+
+    XCTAssertTrue(html.contains("<code>{++add++}</code>"), "Addition syntax should be preserved")
+    XCTAssertTrue(html.contains("<code>{--del--}</code>"), "Deletion syntax should be preserved")
+    XCTAssertTrue(html.contains("<code>{~~old~&gt;new~~}</code>"), "Substitution syntax should be preserved")
+    XCTAssertTrue(html.contains("<code>{&gt;&gt;note&lt;&lt;}</code>"), "Comment syntax should be preserved")
+    XCTAssertTrue(html.contains("<code>{==mark==}</code>"), "Highlight syntax should be preserved")
+  }
+
+  func testObsidianHighlightInInlineCodePreservesOriginalSyntax() {
+    // Obsidian highlight syntax should also preserve original syntax in inline code
+    let markdown = "Check this: `==highlighted==` text."
+    let blocks = [BlockNode](markdown: markdown)
+    let html = blocks.renderExtendedHTML()
+
+    XCTAssertTrue(html.contains("<code>==highlighted==</code>"), "Expected original highlight syntax in inline code, got: \(html)")
+  }
 }

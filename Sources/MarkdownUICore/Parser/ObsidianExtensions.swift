@@ -468,6 +468,18 @@ public extension Array where Element == InlineNode {
           results.append(processed)
         }
 
+      case .code(let content):
+        // Inline code should display original highlight syntax, not render it
+        let restored = content
+          .replacingOccurrences(of: highlightOpenPlaceholder, with: "==")
+          .replacingOccurrences(of: highlightClosePlaceholder, with: "==")
+        let processed = InlineNode.code(restored)
+        if highlightBuffer != nil {
+          highlightBuffer?.append(processed)
+        } else {
+          results.append(processed)
+        }
+
       default:
         if highlightBuffer != nil {
           highlightBuffer?.append(node)
@@ -796,6 +808,9 @@ private func processNodeRecursively(_ node: InlineNode) -> InlineNode {
     return .criticComment(children: children.restoringCriticMarkup())
   case .criticHighlight(let children):
     return .criticHighlight(children: children.restoringCriticMarkup())
+  case .code(let content):
+    // Inline code should display original CriticMarkup syntax, not render it
+    return .code(content.restoringCriticMarkupInCodeBlock())
   default:
     return node
   }
