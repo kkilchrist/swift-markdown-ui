@@ -3,14 +3,25 @@ import MarkdownUICore
 
 struct InlineText: View {
   @Environment(\.inlineImageProvider) private var inlineImageProvider
+  @Environment(\.inlineMathProvider) private var inlineMathProvider
   @Environment(\.baseURL) private var baseURL
   @Environment(\.imageBaseURL) private var imageBaseURL
   @Environment(\.softBreakMode) private var softBreakMode
   @Environment(\.theme) private var theme
 
   @State private var inlineImages: [String: Image] = [:]
+  @State private var asyncLoadedMath: [String: RenderedMath] = [:]
 
   private let inlines: [InlineNode]
+
+  /// Computed property that merges cache (synchronous) with async-loaded math.
+  /// This ensures cached math is available immediately during body evaluation,
+  /// preventing flashing when the view re-renders.
+  private var renderedMath: [String: RenderedMath] {
+    var results = loadCachedMath()  // Check cache synchronously
+    results.merge(asyncLoadedMath) { _, asyncLoaded in asyncLoaded }
+    return results
+  }
 
   init(_ inlines: [InlineNode]) {
     self.inlines = inlines
@@ -31,6 +42,11 @@ struct InlineText: View {
     }
     .task(id: self.inlines) {
       self.inlineImages = (try? await self.loadInlineImages()) ?? [:]
+      // Load any uncached math asynchronously (cached math is handled by computed property)
+      let uncachedMath = await self.loadUncachedRenderedMath()
+      if !uncachedMath.isEmpty {
+        self.asyncLoadedMath.merge(uncachedMath) { _, new in new }
+      }
     }
   }
 
@@ -75,6 +91,7 @@ struct InlineText: View {
       baseURL: self.baseURL,
       textStyles: self.textStyles,
       images: self.inlineImages,
+      renderedMath: self.renderedMath,
       softBreakMode: self.softBreakMode,
       attributes: attributes,
       fontProperties: attributes.fontProperties
@@ -86,6 +103,7 @@ struct InlineText: View {
       baseURL: self.baseURL,
       textStyles: self.textStyles,
       images: self.inlineImages,
+      renderedMath: self.renderedMath,
       softBreakMode: self.softBreakMode,
       attributes: attributes,
       fontProperties: attributes.fontProperties
@@ -132,6 +150,57 @@ struct InlineText: View {
       }
 
       return inlineImages
+    }
+  }
+
+  /// Synchronously load math from cache - returns immediately with cached values
+  private func loadCachedMath() -> [String: RenderedMath] {
+    let mathExpressions = Set(self.inlines.compactMap(\.mathContent))
+    guard !mathExpressions.isEmpty else { return [:] }
+
+    var results: [String: RenderedMath] = [:]
+    for math in mathExpressions {
+      if let cached = self.inlineMathProvider.cachedRenderedMath(for: math) {
+        results[math] = cached
+      }
+    }
+    return results
+  }
+
+  /// Asynchronously load only math that isn't already cached
+  private func loadUncachedRenderedMath() async -> [String: RenderedMath] {
+    // Extract unique math expressions from inlines
+    let mathExpressions = Set(self.inlines.compactMap(\.mathContent))
+    guard !mathExpressions.isEmpty else { return [:] }
+
+    // Filter to only uncached expressions
+    let uncachedExpressions = mathExpressions.filter {
+      self.inlineMathProvider.cachedRenderedMath(for: $0) == nil
+    }
+    guard !uncachedExpressions.isEmpty else { return [:] }
+
+    return await withTaskGroup(of: (String, RenderedMath?).self) { taskGroup in
+      for math in uncachedExpressions {
+        taskGroup.addTask {
+          do {
+            let rendered = try await self.inlineMathProvider.renderedMath(for: math)
+            return (math, rendered)
+          } catch {
+            // Provider threw (e.g., default provider) - fall back to text rendering
+            return (math, nil)
+          }
+        }
+      }
+
+      var results: [String: RenderedMath] = [:]
+
+      for await result in taskGroup {
+        if let rendered = result.1 {
+          results[result.0] = rendered
+        }
+      }
+
+      return results
     }
   }
 }
