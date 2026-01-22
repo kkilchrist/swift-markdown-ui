@@ -12,6 +12,7 @@ public enum InlineNode: Hashable, Sendable {
   case highlight(children: [InlineNode])
   case link(destination: String, children: [InlineNode])
   case image(source: String, children: [InlineNode])
+  case math(String)  // Inline math expressions ($...$)
 
   // CriticMarkup support
   case criticAddition(children: [InlineNode])      // {++text++}

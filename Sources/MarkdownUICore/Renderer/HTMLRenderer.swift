@@ -221,6 +221,10 @@ public extension InlineNode {
 
     case .criticHighlight(let children):
       return "<mark class=\"critic-highlight\">\(children.renderExtendedHTML())</mark>"
+
+    case .math(let content):
+      // Render math as a span with class for styling/JS processing
+      return "<span class=\"math-inline\">$\(content.htmlEscaped)$</span>"
     }
   }
 
@@ -230,7 +234,7 @@ public extension InlineNode {
       return content
     case .softBreak, .lineBreak:
       return " "
-    case .code(let content):
+    case .code(let content), .math(let content):
       return content
     case .html:
       return ""

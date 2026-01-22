@@ -87,6 +87,8 @@ private struct AttributedStringInlineRenderer {
       self.renderCriticComment(children: children)
     case .criticHighlight(let children):
       self.renderCriticHighlight(children: children)
+    case .math(let content):
+      self.renderMath(content)
     }
   }
 
@@ -267,6 +269,11 @@ private struct AttributedStringInlineRenderer {
     }
 
     self.attributes = savedAttributes
+  }
+
+  private mutating func renderMath(_ math: String) {
+    // Render math as monospace code-like text in AttributedString
+    self.result += .init(math, attributes: self.textStyles.code.mergingAttributes(self.attributes))
   }
 }
 

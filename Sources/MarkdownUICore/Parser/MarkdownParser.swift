@@ -504,6 +504,11 @@ public extension UnsafeNode {
       }.joined()
       cmark_node_set_literal(container, "{==\(innerText)==}")
       return container
+    case .math(let content):
+      // Render math as $content$ when converting back to markdown
+      guard let node = cmark_node_new(CMARK_NODE_TEXT) else { return nil }
+      cmark_node_set_literal(node, "$\(content)$")
+      return node
     case .link(let destination, let children):
       guard let node = cmark_node_new(CMARK_NODE_LINK) else { return nil }
       cmark_node_set_url(node, destination)
