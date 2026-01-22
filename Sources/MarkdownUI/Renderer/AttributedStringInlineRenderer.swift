@@ -231,9 +231,12 @@ private struct AttributedStringInlineRenderer {
   }
 
   private mutating func renderCriticSubstitution(oldContent: [InlineNode], newContent: [InlineNode]) {
+    print("DEBUG renderCriticSubstitution: oldContent=\(oldContent), newContent=\(newContent)")
+
     // Render old content with deletion style
     let savedAttributes = self.attributes
     self.attributes = self.textStyles.criticSubstitutionOld.mergingAttributes(self.attributes)
+    print("DEBUG: After criticSubstitutionOld merge, fg=\(String(describing: self.attributes.foregroundColor))")
 
     for child in oldContent {
       self.render(child)
@@ -241,6 +244,7 @@ private struct AttributedStringInlineRenderer {
 
     // Render new content with addition style
     self.attributes = self.textStyles.criticSubstitutionNew.mergingAttributes(savedAttributes)
+    print("DEBUG: After criticSubstitutionNew merge, fg=\(String(describing: self.attributes.foregroundColor))")
 
     for child in newContent {
       self.render(child)
