@@ -430,7 +430,17 @@ final class MarkdownUICoreTests: XCTestCase {
     let html = blocks.renderExtendedHTML()
 
     XCTAssertTrue(html.contains("<del class=\"critic-substitution-old\">hipsum</del>"), "Expected hipsum in substitution-old, got: \(html)")
-    XCTAssertTrue(html.contains("<ins class=\"critic-substitution-new\">ipsum</ins>"), "Expected ipsum in substitution-new, got: \(html)")
+  }
+
+  func testCriticMarkupAdjacentSubstitutionAndComment() {
+    // Adjacent CriticMarkup elements - substitution immediately followed by comment
+    let markdown = "The deadline is {~~March 15~>March 22~~}{>>pushed back due to delays<<}."
+    let blocks = [BlockNode](markdown: markdown)
+    let html = blocks.renderExtendedHTML()
+
+    XCTAssertTrue(html.contains("<del class=\"critic-substitution-old\">March 15</del>"), "Expected substitution-old, got: \(html)")
+    XCTAssertTrue(html.contains("<ins class=\"critic-substitution-new\">March 22</ins>"), "Expected substitution-new, got: \(html)")
+    XCTAssertTrue(html.contains("<span class=\"critic-comment\">pushed back due to delays</span>"), "Expected comment, got: \(html)")
   }
 
   func testCriticMarkupMultipleInOneLine() {
