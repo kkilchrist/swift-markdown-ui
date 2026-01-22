@@ -32,9 +32,8 @@ public struct CriticCommentStyle: TextStyle {
 
   public func _collectAttributes(in attributes: inout AttributeContainer) {
     attributes.backgroundColor = .orange.opacity(0.3)
-    // Note: Italic is handled via FontStyle, but we can set it here for AttributedString
     var fontProperties = attributes.fontProperties ?? FontProperties()
-    fontProperties.italic = true
+    fontProperties.style = .italic
     attributes.fontProperties = fontProperties
   }
 }
