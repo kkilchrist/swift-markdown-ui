@@ -100,8 +100,6 @@ private struct AttributedStringInlineRenderer {
       text = text.replacingOccurrences(of: "^\\s+", with: "", options: .regularExpression)
     }
 
-    print("DEBUG renderText: '\(text)' with foregroundColor: \(String(describing: self.attributes.foregroundColor))")
-
     if let spacing = self.pendingSoftBreakSpacing, spacing > 0 {
       var textAttributes = self.attributes
       let paragraphStyle = NSMutableParagraphStyle()
@@ -233,10 +231,6 @@ private struct AttributedStringInlineRenderer {
   }
 
   private mutating func renderCriticSubstitution(oldContent: [InlineNode], newContent: [InlineNode]) {
-    print("DEBUG AttributedStringInlineRenderer: renderCriticSubstitution called")
-    print("  oldContent: \(oldContent)")
-    print("  newContent: \(newContent)")
-
     // Render old content with deletion style
     let savedAttributes = self.attributes
     self.attributes = self.textStyles.criticSubstitutionOld.mergingAttributes(self.attributes)
@@ -246,23 +240,13 @@ private struct AttributedStringInlineRenderer {
     }
 
     // Render new content with addition style
-    // DEBUG: Create fresh attributes with explicit green color
-    var newAttrs = savedAttributes
-    newAttrs.foregroundColor = .green
-    newAttrs.underlineStyle = .single
-    self.attributes = newAttrs
-    print("DEBUG: Set newAttrs.foregroundColor to .green")
+    self.attributes = self.textStyles.criticSubstitutionNew.mergingAttributes(savedAttributes)
 
     for child in newContent {
-      print("DEBUG: Rendering newContent child: \(child)")
       self.render(child)
     }
 
     self.attributes = savedAttributes
-    print("DEBUG: After renderCriticSubstitution, result.runs:")
-    for run in self.result.runs {
-      print("  '\(self.result[run.range].characters)' fg=\(String(describing: run.foregroundColor)) underline=\(String(describing: run.underlineStyle)) strikethrough=\(String(describing: run.strikethroughStyle))")
-    }
   }
 
   private mutating func renderCriticComment(children: [InlineNode]) {
