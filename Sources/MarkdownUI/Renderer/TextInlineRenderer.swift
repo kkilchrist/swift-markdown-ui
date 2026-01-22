@@ -84,6 +84,7 @@ private struct TextInlineRenderer {
     case .math(let content):
       self.renderMath(content)
     default:
+      print("DEBUG TextInlineRenderer: defaultRender for \(inline)")
       self.defaultRender(inline)
     }
   }
