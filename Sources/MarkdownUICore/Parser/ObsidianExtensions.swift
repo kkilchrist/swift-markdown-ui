@@ -46,6 +46,31 @@ public extension String {
   public func strippingPrivateUseAreaCharacters() -> String {
     String(self.unicodeScalars.filter { !privateUseAreaRange.contains($0) })
   }
+
+  /// Restores CriticMarkup placeholders back to original syntax in code blocks.
+  /// Code blocks should display the original CriticMarkup syntax, not render it.
+  func restoringCriticMarkupInCodeBlock() -> String {
+    var result = self
+    // Restore all CriticMarkup placeholders to original syntax
+    result = result.replacingOccurrences(of: criticAdditionOpen, with: "{++")
+    result = result.replacingOccurrences(of: criticAdditionClose, with: "++}")
+    result = result.replacingOccurrences(of: criticDeletionOpen, with: "{--")
+    result = result.replacingOccurrences(of: criticDeletionClose, with: "--}")
+    result = result.replacingOccurrences(of: criticSubstitutionOpen, with: "{~~")
+    result = result.replacingOccurrences(of: criticSubstitutionArrow, with: "~>")
+    result = result.replacingOccurrences(of: criticSubstitutionClose, with: "~~}")
+    result = result.replacingOccurrences(of: criticCommentOpen, with: "{>>")
+    result = result.replacingOccurrences(of: criticCommentClose, with: "<<}")
+    result = result.replacingOccurrences(of: criticHighlightOpen, with: "{==")
+    result = result.replacingOccurrences(of: criticHighlightClose, with: "==}")
+    // Also restore highlight placeholders
+    result = result.replacingOccurrences(of: highlightOpenPlaceholder, with: "==")
+    result = result.replacingOccurrences(of: highlightClosePlaceholder, with: "==")
+    // Also restore image dimension placeholder
+    result = result.replacingOccurrences(of: imageDimensionPlaceholder, with: "|")
+    return result
+  }
+
   /// Protects highlight syntax (==text==) from cmark parsing by replacing == markers with placeholders.
   /// This allows nested formatting like ==**bold**== to be parsed correctly by cmark.
   /// Returns the modified string and whether any replacements were made.
@@ -666,6 +691,9 @@ private func processTextForCriticMarkup(_ text: String) -> [InlineNode] {
         let content = String(text[current..<closeRange.lowerBound])
         output.append(.criticAddition(children: [.text(content)]))
         current = closeRange.upperBound
+      } else {
+        // No close marker found - output original syntax as text
+        output.append(.text("{++"))
       }
 
     case .deletion:
@@ -673,6 +701,9 @@ private func processTextForCriticMarkup(_ text: String) -> [InlineNode] {
         let content = String(text[current..<closeRange.lowerBound])
         output.append(.criticDeletion(children: [.text(content)]))
         current = closeRange.upperBound
+      } else {
+        // No close marker found - output original syntax as text
+        output.append(.text("{--"))
       }
 
     case .substitution:
@@ -686,6 +717,9 @@ private func processTextForCriticMarkup(_ text: String) -> [InlineNode] {
           newContent: [.text(newContent)]
         ))
         current = closeRange.upperBound
+      } else {
+        // No complete substitution found - output original syntax as text
+        output.append(.text("{~~"))
       }
 
     case .comment:
@@ -693,6 +727,9 @@ private func processTextForCriticMarkup(_ text: String) -> [InlineNode] {
         let content = String(text[current..<closeRange.lowerBound])
         output.append(.criticComment(children: [.text(content)]))
         current = closeRange.upperBound
+      } else {
+        // No close marker found - output original syntax as text
+        output.append(.text("{>>"))
       }
 
     case .highlight:
@@ -700,6 +737,9 @@ private func processTextForCriticMarkup(_ text: String) -> [InlineNode] {
         let content = String(text[current..<closeRange.lowerBound])
         output.append(.criticHighlight(children: [.text(content)]))
         current = closeRange.upperBound
+      } else {
+        // No close marker found - output original syntax as text
+        output.append(.text("{=="))
       }
     }
   }
@@ -979,7 +1019,15 @@ public extension Array where Element == BlockNode {
           }
         )
 
-      default:
+      case .codeBlock(let fenceInfo, let content):
+        // Strip placeholder characters from code blocks - they should show original text
+        return .codeBlock(fenceInfo: fenceInfo, content: content.restoringCriticMarkupInCodeBlock())
+
+      case .htmlBlock(let content):
+        // Strip placeholder characters from HTML blocks
+        return .htmlBlock(content: content.restoringCriticMarkupInCodeBlock())
+
+      case .thematicBreak:
         return block
       }
     }

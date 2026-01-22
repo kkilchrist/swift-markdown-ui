@@ -7,17 +7,18 @@ public extension Array where Element == BlockNode {
     // Strip any Private Use Area characters that could conflict with our placeholders
     let sanitized = markdown.strippingPrivateUseAreaCharacters()
 
+    // Preprocess: protect CriticMarkup syntax FIRST (before highlight protection)
+    // CriticMarkup {==text==} must be protected before Obsidian ==text==
+    // to prevent ==text== inside {==text==} from being matched first
+    let (withCriticMarkup, _) = sanitized.protectingCriticMarkup()
+
     // Preprocess: protect highlight markers before cmark parsing
     // This allows nested formatting like ==**bold**== to be parsed correctly
-    let (withHighlights, _) = sanitized.protectingHighlightMarkers()
-
-    // Preprocess: protect CriticMarkup syntax before cmark parsing
-    // This allows nested formatting like {++**bold**++} to be parsed correctly
-    let (withCriticMarkup, _) = withHighlights.protectingCriticMarkup()
+    let (withHighlights, _) = withCriticMarkup.protectingHighlightMarkers()
 
     // Preprocess: protect image dimension syntax from table parser
     // Replace | inside ![alt|dimensions](url) with a placeholder before cmark parsing
-    let (preprocessed, hasImageDimensions) = withCriticMarkup.protectingImageDimensions()
+    let (preprocessed, hasImageDimensions) = withHighlights.protectingImageDimensions()
 
     let blocks = UnsafeNode.parseMarkdown(preprocessed) { document in
       document.children.compactMap(BlockNode.init(unsafeNode:))
