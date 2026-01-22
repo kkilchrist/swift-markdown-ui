@@ -119,6 +119,26 @@ public struct Theme: Sendable {
   /// The highlight style (for ==text== syntax).
   public var highlight: TextStyle = BackgroundColor(.yellow.opacity(0.4))
 
+  // MARK: - CriticMarkup Styles
+
+  /// The CriticMarkup addition style ({++text++}).
+  public var criticAddition: TextStyle = CriticAdditionStyle()
+
+  /// The CriticMarkup deletion style ({--text--}).
+  public var criticDeletion: TextStyle = CriticDeletionStyle()
+
+  /// The CriticMarkup substitution old content style (the struck-through part).
+  public var criticSubstitutionOld: TextStyle = CriticDeletionStyle()
+
+  /// The CriticMarkup substitution new content style (the underlined part).
+  public var criticSubstitutionNew: TextStyle = CriticAdditionStyle()
+
+  /// The CriticMarkup comment style ({>>comment<<}).
+  public var criticComment: TextStyle = CriticCommentStyle()
+
+  /// The CriticMarkup highlight style ({==text==}).
+  public var criticHighlight: TextStyle = BackgroundColor(.yellow.opacity(0.4))
+
   /// The link style.
   public var link: TextStyle = EmptyTextStyle()
 
@@ -292,6 +312,56 @@ extension Theme {
   public func link<S: TextStyle>(@TextStyleBuilder link: () -> S) -> Theme {
     var theme = self
     theme.link = link()
+    return theme
+  }
+
+  // MARK: - CriticMarkup Style Modifiers
+
+  /// Adds a CriticMarkup addition style to the theme.
+  /// - Parameter criticAddition: A text style builder that returns the addition style.
+  public func criticAddition<S: TextStyle>(@TextStyleBuilder criticAddition: () -> S) -> Theme {
+    var theme = self
+    theme.criticAddition = criticAddition()
+    return theme
+  }
+
+  /// Adds a CriticMarkup deletion style to the theme.
+  /// - Parameter criticDeletion: A text style builder that returns the deletion style.
+  public func criticDeletion<S: TextStyle>(@TextStyleBuilder criticDeletion: () -> S) -> Theme {
+    var theme = self
+    theme.criticDeletion = criticDeletion()
+    return theme
+  }
+
+  /// Adds a CriticMarkup substitution old content style to the theme.
+  /// - Parameter criticSubstitutionOld: A text style builder that returns the style for old (deleted) content.
+  public func criticSubstitutionOld<S: TextStyle>(@TextStyleBuilder criticSubstitutionOld: () -> S) -> Theme {
+    var theme = self
+    theme.criticSubstitutionOld = criticSubstitutionOld()
+    return theme
+  }
+
+  /// Adds a CriticMarkup substitution new content style to the theme.
+  /// - Parameter criticSubstitutionNew: A text style builder that returns the style for new (added) content.
+  public func criticSubstitutionNew<S: TextStyle>(@TextStyleBuilder criticSubstitutionNew: () -> S) -> Theme {
+    var theme = self
+    theme.criticSubstitutionNew = criticSubstitutionNew()
+    return theme
+  }
+
+  /// Adds a CriticMarkup comment style to the theme.
+  /// - Parameter criticComment: A text style builder that returns the comment style.
+  public func criticComment<S: TextStyle>(@TextStyleBuilder criticComment: () -> S) -> Theme {
+    var theme = self
+    theme.criticComment = criticComment()
+    return theme
+  }
+
+  /// Adds a CriticMarkup highlight style to the theme.
+  /// - Parameter criticHighlight: A text style builder that returns the critic highlight style.
+  public func criticHighlight<S: TextStyle>(@TextStyleBuilder criticHighlight: () -> S) -> Theme {
+    var theme = self
+    theme.criticHighlight = criticHighlight()
     return theme
   }
 

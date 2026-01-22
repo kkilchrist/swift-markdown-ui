@@ -9,4 +9,12 @@ struct InlineTextStyles {
   let highlight: TextStyle
   let link: TextStyle
   let softBreak: SoftBreakStyle
+
+  // CriticMarkup styles
+  let criticAddition: TextStyle
+  let criticDeletion: TextStyle
+  let criticSubstitutionOld: TextStyle
+  let criticSubstitutionNew: TextStyle
+  let criticComment: TextStyle
+  let criticHighlight: TextStyle
 }

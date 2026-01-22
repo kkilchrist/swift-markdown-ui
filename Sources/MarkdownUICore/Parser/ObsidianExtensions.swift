@@ -11,9 +11,31 @@ private let imageDimensionPlaceholder = "\u{E000}"
 private let highlightOpenPlaceholder = "\u{E001}"
 private let highlightClosePlaceholder = "\u{E002}"
 
-/// Placeholder characters for inline math markers ($...$) to protect them from cmark parsing.
-private let mathOpenPlaceholder = "\u{E003}"
-private let mathClosePlaceholder = "\u{E004}"
+// MARK: - CriticMarkup Placeholders
+
+/// Placeholder characters for CriticMarkup syntax.
+/// Using consecutive Unicode Private Use Area characters starting at U+E010.
+
+// Addition: {++text++}
+private let criticAdditionOpen = "\u{E010}"
+private let criticAdditionClose = "\u{E011}"
+
+// Deletion: {--text--}
+private let criticDeletionOpen = "\u{E012}"
+private let criticDeletionClose = "\u{E013}"
+
+// Substitution: {~~old~>new~~}
+private let criticSubstitutionOpen = "\u{E014}"
+private let criticSubstitutionArrow = "\u{E015}"
+private let criticSubstitutionClose = "\u{E016}"
+
+// Comment: {>>comment<<}
+private let criticCommentOpen = "\u{E017}"
+private let criticCommentClose = "\u{E018}"
+
+// CriticMarkup Highlight: {==text==}
+private let criticHighlightOpen = "\u{E019}"
+private let criticHighlightClose = "\u{E01A}"
 
 /// Unicode Private Use Area range (U+E000 to U+F8FF)
 private let privateUseAreaRange: ClosedRange<Unicode.Scalar> = "\u{E000}"..."\u{F8FF}"
@@ -57,44 +79,6 @@ public extension String {
     return (result, hasReplacements)
   }
 
-  /// Protects inline math syntax ($...$) from cmark parsing by replacing $ markers with placeholders.
-  /// This prevents cmark from treating dollar signs as regular text and allows proper math detection.
-  /// Returns the modified string and whether any replacements were made.
-  ///
-  /// Note: This only matches single $ delimiters (inline math), not $$ (display math).
-  public func protectingInlineMathMarkers() -> (result: String, hasInlineMath: Bool) {
-    // Pattern matches $content$ where:
-    // - Not preceded by $ (avoids $$)
-    // - Content is non-empty and doesn't contain $ or newlines
-    // - Not followed by $ (avoids $$)
-    // Using negative lookbehind/lookahead for $$ detection
-    let pattern = #"(?<!\$)\$([^$\n]+?)\$(?!\$)"#
-
-    guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else {
-      return (self, false)
-    }
-
-    var result = self
-    var hasReplacements = false
-    let nsRange = NSRange(self.startIndex..., in: self)
-
-    // Process matches in reverse order to maintain correct indices
-    let matches = regex.matches(in: self, options: [], range: nsRange).reversed()
-
-    for match in matches {
-      guard let fullRange = Range(match.range, in: result),
-            let contentRange = Range(match.range(at: 1), in: result) else { continue }
-
-      let content = String(result[contentRange])
-      let replacement = "\(mathOpenPlaceholder)\(content)\(mathClosePlaceholder)"
-
-      result.replaceSubrange(fullRange, with: replacement)
-      hasReplacements = true
-    }
-
-    return (result, hasReplacements)
-  }
-
   /// Protects image dimension syntax from the table parser by replacing | with a placeholder.
   /// Returns the modified string and whether any replacements were made.
   ///
@@ -129,6 +113,94 @@ public extension String {
 
       result.replaceSubrange(fullRange, with: replacement)
       hasReplacements = true
+    }
+
+    return (result, hasReplacements)
+  }
+
+  /// Protects CriticMarkup syntax from cmark parsing by replacing markers with placeholders.
+  /// This allows nested formatting like {++**bold**++} to be parsed correctly.
+  /// Returns the modified string and whether any replacements were made.
+  public func protectingCriticMarkup() -> (result: String, hasCriticMarkup: Bool) {
+    var result = self
+    var hasReplacements = false
+
+    // Process in order: substitution first (has most specific pattern), then others
+    // Substitution: {~~old~>new~~}
+    let substitutionPattern = #"\{~~(.+?)~>(.+?)~~\}"#
+    if let regex = try? NSRegularExpression(pattern: substitutionPattern, options: [.dotMatchesLineSeparators]) {
+      let nsRange = NSRange(result.startIndex..., in: result)
+      let matches = regex.matches(in: result, options: [], range: nsRange).reversed()
+      for match in matches {
+        guard let fullRange = Range(match.range, in: result),
+              let oldRange = Range(match.range(at: 1), in: result),
+              let newRange = Range(match.range(at: 2), in: result) else { continue }
+        let oldContent = String(result[oldRange])
+        let newContent = String(result[newRange])
+        let replacement = "\(criticSubstitutionOpen)\(oldContent)\(criticSubstitutionArrow)\(newContent)\(criticSubstitutionClose)"
+        result.replaceSubrange(fullRange, with: replacement)
+        hasReplacements = true
+      }
+    }
+
+    // Addition: {++text++}
+    let additionPattern = #"\{\+\+(.+?)\+\+\}"#
+    if let regex = try? NSRegularExpression(pattern: additionPattern, options: [.dotMatchesLineSeparators]) {
+      let nsRange = NSRange(result.startIndex..., in: result)
+      let matches = regex.matches(in: result, options: [], range: nsRange).reversed()
+      for match in matches {
+        guard let fullRange = Range(match.range, in: result),
+              let contentRange = Range(match.range(at: 1), in: result) else { continue }
+        let content = String(result[contentRange])
+        let replacement = "\(criticAdditionOpen)\(content)\(criticAdditionClose)"
+        result.replaceSubrange(fullRange, with: replacement)
+        hasReplacements = true
+      }
+    }
+
+    // Deletion: {--text--}
+    let deletionPattern = #"\{--(.+?)--\}"#
+    if let regex = try? NSRegularExpression(pattern: deletionPattern, options: [.dotMatchesLineSeparators]) {
+      let nsRange = NSRange(result.startIndex..., in: result)
+      let matches = regex.matches(in: result, options: [], range: nsRange).reversed()
+      for match in matches {
+        guard let fullRange = Range(match.range, in: result),
+              let contentRange = Range(match.range(at: 1), in: result) else { continue }
+        let content = String(result[contentRange])
+        let replacement = "\(criticDeletionOpen)\(content)\(criticDeletionClose)"
+        result.replaceSubrange(fullRange, with: replacement)
+        hasReplacements = true
+      }
+    }
+
+    // Comment: {>>comment<<}
+    let commentPattern = #"\{>>(.+?)<<\}"#
+    if let regex = try? NSRegularExpression(pattern: commentPattern, options: [.dotMatchesLineSeparators]) {
+      let nsRange = NSRange(result.startIndex..., in: result)
+      let matches = regex.matches(in: result, options: [], range: nsRange).reversed()
+      for match in matches {
+        guard let fullRange = Range(match.range, in: result),
+              let contentRange = Range(match.range(at: 1), in: result) else { continue }
+        let content = String(result[contentRange])
+        let replacement = "\(criticCommentOpen)\(content)\(criticCommentClose)"
+        result.replaceSubrange(fullRange, with: replacement)
+        hasReplacements = true
+      }
+    }
+
+    // CriticMarkup Highlight: {==text==}
+    let cmHighlightPattern = #"\{==(.+?)==\}"#
+    if let regex = try? NSRegularExpression(pattern: cmHighlightPattern, options: [.dotMatchesLineSeparators]) {
+      let nsRange = NSRange(result.startIndex..., in: result)
+      let matches = regex.matches(in: result, options: [], range: nsRange).reversed()
+      for match in matches {
+        guard let fullRange = Range(match.range, in: result),
+              let contentRange = Range(match.range(at: 1), in: result) else { continue }
+        let content = String(result[contentRange])
+        let replacement = "\(criticHighlightOpen)\(content)\(criticHighlightClose)"
+        result.replaceSubrange(fullRange, with: replacement)
+        hasReplacements = true
+      }
     }
 
     return (result, hasReplacements)
@@ -230,6 +302,24 @@ public extension InlineNode {
     case .link(let destination, let children):
       return .link(destination: destination, children: children.restoringImageDimensions())
 
+    case .criticAddition(let children):
+      return .criticAddition(children: children.restoringImageDimensions())
+
+    case .criticDeletion(let children):
+      return .criticDeletion(children: children.restoringImageDimensions())
+
+    case .criticSubstitution(let oldContent, let newContent):
+      return .criticSubstitution(
+        oldContent: oldContent.restoringImageDimensions(),
+        newContent: newContent.restoringImageDimensions()
+      )
+
+    case .criticComment(let children):
+      return .criticComment(children: children.restoringImageDimensions())
+
+    case .criticHighlight(let children):
+      return .criticHighlight(children: children.restoringImageDimensions())
+
     default:
       return self
     }
@@ -304,6 +394,49 @@ public extension Array where Element == InlineNode {
 
       case .image(let source, let children):
         let processed = InlineNode.image(source: source, children: children.restoringHighlightMarkers())
+        if highlightBuffer != nil {
+          highlightBuffer?.append(processed)
+        } else {
+          results.append(processed)
+        }
+
+      case .criticAddition(let children):
+        let processed = InlineNode.criticAddition(children: children.restoringHighlightMarkers())
+        if highlightBuffer != nil {
+          highlightBuffer?.append(processed)
+        } else {
+          results.append(processed)
+        }
+
+      case .criticDeletion(let children):
+        let processed = InlineNode.criticDeletion(children: children.restoringHighlightMarkers())
+        if highlightBuffer != nil {
+          highlightBuffer?.append(processed)
+        } else {
+          results.append(processed)
+        }
+
+      case .criticSubstitution(let oldContent, let newContent):
+        let processed = InlineNode.criticSubstitution(
+          oldContent: oldContent.restoringHighlightMarkers(),
+          newContent: newContent.restoringHighlightMarkers()
+        )
+        if highlightBuffer != nil {
+          highlightBuffer?.append(processed)
+        } else {
+          results.append(processed)
+        }
+
+      case .criticComment(let children):
+        let processed = InlineNode.criticComment(children: children.restoringHighlightMarkers())
+        if highlightBuffer != nil {
+          highlightBuffer?.append(processed)
+        } else {
+          results.append(processed)
+        }
+
+      case .criticHighlight(let children):
+        let processed = InlineNode.criticHighlight(children: children.restoringHighlightMarkers())
         if highlightBuffer != nil {
           highlightBuffer?.append(processed)
         } else {
@@ -418,79 +551,168 @@ private func processTextForHighlightMarkers(
   return output
 }
 
-// MARK: - Inline Math Syntax ($...$)
+// MARK: - CriticMarkup Syntax
 
 public extension Array where Element == InlineNode {
-  /// Restores math placeholders back into proper .math nodes.
-  /// Math content is a leaf node (like .code), so doesn't support nested formatting.
-  public func restoringMathMarkers() -> [InlineNode] {
-    self.flatMap { node -> [InlineNode] in
+  /// Restores CriticMarkup placeholders back into proper critic markup nodes.
+  /// This handles nested formatting correctly by collecting all nodes between open/close markers.
+  func restoringCriticMarkup() -> [InlineNode] {
+    var results: [InlineNode] = []
+    var i = 0
+
+    while i < self.count {
+      let node = self[i]
+
       switch node {
       case .text(let content):
-        return processTextForMathMarkers(content)
+        // Check for CriticMarkup placeholders in the text
+        let processed = processTextForCriticMarkup(content)
+        results.append(contentsOf: processed)
 
       case .emphasis(let children):
-        return [.emphasis(children: children.restoringMathMarkers())]
+        results.append(.emphasis(children: children.restoringCriticMarkup()))
 
       case .strong(let children):
-        return [.strong(children: children.restoringMathMarkers())]
+        results.append(.strong(children: children.restoringCriticMarkup()))
 
       case .strikethrough(let children):
-        return [.strikethrough(children: children.restoringMathMarkers())]
+        results.append(.strikethrough(children: children.restoringCriticMarkup()))
 
       case .highlight(let children):
-        return [.highlight(children: children.restoringMathMarkers())]
+        results.append(.highlight(children: children.restoringCriticMarkup()))
 
       case .link(let destination, let children):
-        return [.link(destination: destination, children: children.restoringMathMarkers())]
+        results.append(.link(destination: destination, children: children.restoringCriticMarkup()))
 
       case .image(let source, let children):
-        return [.image(source: source, children: children.restoringMathMarkers())]
+        results.append(.image(source: source, children: children.restoringCriticMarkup()))
+
+      case .criticAddition(let children):
+        results.append(.criticAddition(children: children.restoringCriticMarkup()))
+
+      case .criticDeletion(let children):
+        results.append(.criticDeletion(children: children.restoringCriticMarkup()))
+
+      case .criticSubstitution(let oldContent, let newContent):
+        results.append(.criticSubstitution(
+          oldContent: oldContent.restoringCriticMarkup(),
+          newContent: newContent.restoringCriticMarkup()
+        ))
+
+      case .criticComment(let children):
+        results.append(.criticComment(children: children.restoringCriticMarkup()))
+
+      case .criticHighlight(let children):
+        results.append(.criticHighlight(children: children.restoringCriticMarkup()))
 
       default:
-        return [node]
+        results.append(node)
       }
+
+      i += 1
     }
+
+    return results
   }
 }
 
-/// Processes a text node for math placeholders and returns the resulting inline nodes.
-private func processTextForMathMarkers(_ text: String) -> [InlineNode] {
-  var results: [InlineNode] = []
+/// Processes a text node for CriticMarkup placeholders.
+/// Handles all CriticMarkup types including substitution.
+private func processTextForCriticMarkup(_ text: String) -> [InlineNode] {
+  var output: [InlineNode] = []
   var current = text.startIndex
 
   while current < text.endIndex {
-    // Look for math open marker
-    if let openRange = text.range(of: mathOpenPlaceholder, range: current..<text.endIndex) {
-      // Add text before the marker
-      if current < openRange.lowerBound {
-        let before = String(text[current..<openRange.lowerBound])
-        results.append(.text(before))
-      }
+    // Find the next placeholder (whichever comes first)
+    let searches: [(placeholder: String, type: CriticType)] = [
+      (criticAdditionOpen, .addition),
+      (criticDeletionOpen, .deletion),
+      (criticSubstitutionOpen, .substitution),
+      (criticCommentOpen, .comment),
+      (criticHighlightOpen, .highlight),
+    ]
 
-      // Look for the close marker
-      let searchStart = openRange.upperBound
-      if let closeRange = text.range(of: mathClosePlaceholder, range: searchStart..<text.endIndex) {
-        // Extract math content
-        let mathContent = String(text[searchStart..<closeRange.lowerBound])
-        results.append(.math(mathContent))
-        current = closeRange.upperBound
-      } else {
-        // No close marker found - treat open marker as text and continue
-        results.append(.text(mathOpenPlaceholder))
-        current = openRange.upperBound
+    var nearestMatch: (range: Range<String.Index>, type: CriticType)? = nil
+
+    for (placeholder, type) in searches {
+      if let range = text.range(of: placeholder, range: current..<text.endIndex) {
+        if nearestMatch == nil || range.lowerBound < nearestMatch!.range.lowerBound {
+          nearestMatch = (range, type)
+        }
       }
-    } else {
-      // No more math markers - add remaining text
+    }
+
+    guard let match = nearestMatch else {
+      // No more placeholders - add remaining text
       let remaining = String(text[current...])
       if !remaining.isEmpty {
-        results.append(.text(remaining))
+        output.append(.text(remaining))
       }
-      current = text.endIndex
+      break
+    }
+
+    // Add text before the placeholder
+    if current < match.range.lowerBound {
+      let before = String(text[current..<match.range.lowerBound])
+      output.append(.text(before))
+    }
+
+    current = match.range.upperBound
+
+    // Process based on type
+    switch match.type {
+    case .addition:
+      if let closeRange = text.range(of: criticAdditionClose, range: current..<text.endIndex) {
+        let content = String(text[current..<closeRange.lowerBound])
+        output.append(.criticAddition(children: [.text(content)]))
+        current = closeRange.upperBound
+      }
+
+    case .deletion:
+      if let closeRange = text.range(of: criticDeletionClose, range: current..<text.endIndex) {
+        let content = String(text[current..<closeRange.lowerBound])
+        output.append(.criticDeletion(children: [.text(content)]))
+        current = closeRange.upperBound
+      }
+
+    case .substitution:
+      // Find arrow and close markers
+      if let arrowRange = text.range(of: criticSubstitutionArrow, range: current..<text.endIndex),
+         let closeRange = text.range(of: criticSubstitutionClose, range: arrowRange.upperBound..<text.endIndex) {
+        let oldContent = String(text[current..<arrowRange.lowerBound])
+        let newContent = String(text[arrowRange.upperBound..<closeRange.lowerBound])
+        output.append(.criticSubstitution(
+          oldContent: [.text(oldContent)],
+          newContent: [.text(newContent)]
+        ))
+        current = closeRange.upperBound
+      }
+
+    case .comment:
+      if let closeRange = text.range(of: criticCommentClose, range: current..<text.endIndex) {
+        let content = String(text[current..<closeRange.lowerBound])
+        output.append(.criticComment(children: [.text(content)]))
+        current = closeRange.upperBound
+      }
+
+    case .highlight:
+      if let closeRange = text.range(of: criticHighlightClose, range: current..<text.endIndex) {
+        let content = String(text[current..<closeRange.lowerBound])
+        output.append(.criticHighlight(children: [.text(content)]))
+        current = closeRange.upperBound
+      }
     }
   }
 
-  return results
+  return output
+}
+
+private enum CriticType {
+  case addition
+  case deletion
+  case substitution
+  case comment
+  case highlight
 }
 
 // MARK: - Callout Syntax (> [!type])
@@ -703,14 +925,14 @@ private func parseGitHubCallout(inlines: [InlineNode], children: [BlockNode]) ->
 // MARK: - Combined Extension Application
 
 public extension Array where Element == BlockNode {
-  /// Applies all Obsidian markdown extensions (callouts, highlights, and inline math).
-  public func applyObsidianExtensions() -> [BlockNode] {
+  /// Applies all Obsidian markdown extensions (callouts, highlights, and CriticMarkup).
+  func applyObsidianExtensions() -> [BlockNode] {
     self
       .applyCalloutSyntax()
       .restoringInlineMarkersInBlocks()
   }
 
-  /// Restores highlight and math markers in all inline content within blocks.
+  /// Restores highlight and CriticMarkup markers in all inline content within blocks.
   private func restoringInlineMarkersInBlocks() -> [BlockNode] {
     self.map { block -> BlockNode in
       switch block {
@@ -742,17 +964,17 @@ public extension Array where Element == BlockNode {
         )
 
       case .paragraph(let content):
-        return .paragraph(content: content.restoringHighlightMarkers().restoringMathMarkers())
+        return .paragraph(content: content.restoringHighlightMarkers().restoringCriticMarkup())
 
       case .heading(let level, let content):
-        return .heading(level: level, content: content.restoringHighlightMarkers().restoringMathMarkers())
+        return .heading(level: level, content: content.restoringHighlightMarkers().restoringCriticMarkup())
 
       case .table(let columnAlignments, let rows):
         return .table(
           columnAlignments: columnAlignments,
           rows: rows.map { row in
             RawTableRow(cells: row.cells.map { cell in
-              RawTableCell(content: cell.content.restoringHighlightMarkers().restoringMathMarkers())
+              RawTableCell(content: cell.content.restoringHighlightMarkers().restoringCriticMarkup())
             })
           }
         )

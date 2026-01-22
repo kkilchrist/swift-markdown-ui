@@ -65,8 +65,6 @@ private struct AttributedStringInlineRenderer {
       self.renderCode(content)
     case .html(let content):
       self.renderHTML(content)
-    case .math(let content):
-      self.renderMath(content)
     case .emphasis(let children):
       self.renderEmphasis(children: children)
     case .strong(let children):
@@ -79,6 +77,16 @@ private struct AttributedStringInlineRenderer {
       self.renderLink(destination: destination, children: children)
     case .image(let source, let children):
       self.renderImage(source: source, children: children)
+    case .criticAddition(let children):
+      self.renderCriticAddition(children: children)
+    case .criticDeletion(let children):
+      self.renderCriticDeletion(children: children)
+    case .criticSubstitution(let oldContent, let newContent):
+      self.renderCriticSubstitution(oldContent: oldContent, newContent: newContent)
+    case .criticComment(let children):
+      self.renderCriticComment(children: children)
+    case .criticHighlight(let children):
+      self.renderCriticHighlight(children: children)
     }
   }
 
@@ -122,11 +130,6 @@ private struct AttributedStringInlineRenderer {
 
   private mutating func renderCode(_ code: String) {
     self.result += .init(code, attributes: self.textStyles.code.mergingAttributes(self.attributes))
-  }
-
-  private mutating func renderMath(_ math: String) {
-    // Render math with the same style as inline code (monospace)
-    self.result += .init(math, attributes: self.textStyles.code.mergingAttributes(self.attributes))
   }
 
   private mutating func renderHTML(_ html: String) {
@@ -199,6 +202,71 @@ private struct AttributedStringInlineRenderer {
 
   private mutating func renderImage(source: String, children: [InlineNode]) {
     // AttributedString does not support images
+  }
+
+  // MARK: - CriticMarkup Rendering
+
+  private mutating func renderCriticAddition(children: [InlineNode]) {
+    let savedAttributes = self.attributes
+    self.attributes = self.textStyles.criticAddition.mergingAttributes(self.attributes)
+
+    for child in children {
+      self.render(child)
+    }
+
+    self.attributes = savedAttributes
+  }
+
+  private mutating func renderCriticDeletion(children: [InlineNode]) {
+    let savedAttributes = self.attributes
+    self.attributes = self.textStyles.criticDeletion.mergingAttributes(self.attributes)
+
+    for child in children {
+      self.render(child)
+    }
+
+    self.attributes = savedAttributes
+  }
+
+  private mutating func renderCriticSubstitution(oldContent: [InlineNode], newContent: [InlineNode]) {
+    // Render old content with deletion style
+    let savedAttributes = self.attributes
+    self.attributes = self.textStyles.criticSubstitutionOld.mergingAttributes(self.attributes)
+
+    for child in oldContent {
+      self.render(child)
+    }
+
+    // Render new content with addition style
+    self.attributes = self.textStyles.criticSubstitutionNew.mergingAttributes(savedAttributes)
+
+    for child in newContent {
+      self.render(child)
+    }
+
+    self.attributes = savedAttributes
+  }
+
+  private mutating func renderCriticComment(children: [InlineNode]) {
+    let savedAttributes = self.attributes
+    self.attributes = self.textStyles.criticComment.mergingAttributes(self.attributes)
+
+    for child in children {
+      self.render(child)
+    }
+
+    self.attributes = savedAttributes
+  }
+
+  private mutating func renderCriticHighlight(children: [InlineNode]) {
+    let savedAttributes = self.attributes
+    self.attributes = self.textStyles.criticHighlight.mergingAttributes(self.attributes)
+
+    for child in children {
+      self.render(child)
+    }
+
+    self.attributes = savedAttributes
   }
 }
 

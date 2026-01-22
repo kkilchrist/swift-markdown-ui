@@ -171,10 +171,6 @@ public extension InlineNode {
     case .code(let content):
       return "<code>\(content.htmlEscaped)</code>"
 
-    case .math(let content):
-      // Render math in a span with class for styling
-      return "<span class=\"math\">\(content.htmlEscaped)</span>"
-
     case .html(let content):
       return content
 
@@ -209,6 +205,22 @@ public extension InlineNode {
       }
 
       return "<img src=\"\(escapedSrc)\" alt=\"\(cleanAlt.htmlEscaped)\"\(styleAttr)>"
+
+    // CriticMarkup support
+    case .criticAddition(let children):
+      return "<ins class=\"critic-addition\">\(children.renderExtendedHTML())</ins>"
+
+    case .criticDeletion(let children):
+      return "<del class=\"critic-deletion\">\(children.renderExtendedHTML())</del>"
+
+    case .criticSubstitution(let oldContent, let newContent):
+      return "<del class=\"critic-substitution-old\">\(oldContent.renderExtendedHTML())</del><ins class=\"critic-substitution-new\">\(newContent.renderExtendedHTML())</ins>"
+
+    case .criticComment(let children):
+      return "<span class=\"critic-comment\">\(children.renderExtendedHTML())</span>"
+
+    case .criticHighlight(let children):
+      return "<mark class=\"critic-highlight\">\(children.renderExtendedHTML())</mark>"
     }
   }
 
@@ -218,13 +230,18 @@ public extension InlineNode {
       return content
     case .softBreak, .lineBreak:
       return " "
-    case .code(let content), .math(let content):
+    case .code(let content):
       return content
     case .html:
       return ""
     case .emphasis(let children), .strong(let children), .strikethrough(let children),
-         .highlight(let children), .link(_, let children), .image(_, let children):
+         .highlight(let children), .link(_, let children), .image(_, let children),
+         .criticAddition(let children), .criticDeletion(let children),
+         .criticComment(let children), .criticHighlight(let children):
       return children.renderPlainText()
+    case .criticSubstitution(let oldContent, let newContent):
+      // For plain text, show old content followed by new content
+      return oldContent.renderPlainText() + newContent.renderPlainText()
     }
   }
 }

@@ -11,12 +11,13 @@ public extension Array where Element == BlockNode {
     // This allows nested formatting like ==**bold**== to be parsed correctly
     let (withHighlights, _) = sanitized.protectingHighlightMarkers()
 
-    // Preprocess: protect inline math markers ($...$) before cmark parsing
-    let (withMath, _) = withHighlights.protectingInlineMathMarkers()
+    // Preprocess: protect CriticMarkup syntax before cmark parsing
+    // This allows nested formatting like {++**bold**++} to be parsed correctly
+    let (withCriticMarkup, _) = withHighlights.protectingCriticMarkup()
 
     // Preprocess: protect image dimension syntax from table parser
     // Replace | inside ![alt|dimensions](url) with a placeholder before cmark parsing
-    let (preprocessed, hasImageDimensions) = withMath.protectingImageDimensions()
+    let (preprocessed, hasImageDimensions) = withCriticMarkup.protectingImageDimensions()
 
     let blocks = UnsafeNode.parseMarkdown(preprocessed) { document in
       document.children.compactMap(BlockNode.init(unsafeNode:))
@@ -454,11 +455,55 @@ public extension UnsafeNode {
       }.joined()
       cmark_node_set_literal(container, "==\(innerText)==")
       return container
-    case .math(let content):
-      // Render math as $content$ when converting back to markdown
-      guard let node = cmark_node_new(CMARK_NODE_TEXT) else { return nil }
-      cmark_node_set_literal(node, "$\(content)$")
-      return node
+    case .criticAddition(let children):
+      // Render critic additions as {++text++}
+      guard let container = cmark_node_new(CMARK_NODE_TEXT) else { return nil }
+      let innerText = children.compactMap { inline -> String? in
+        if case .text(let text) = inline { return text }
+        return nil
+      }.joined()
+      cmark_node_set_literal(container, "{++\(innerText)++}")
+      return container
+    case .criticDeletion(let children):
+      // Render critic deletions as {--text--}
+      guard let container = cmark_node_new(CMARK_NODE_TEXT) else { return nil }
+      let innerText = children.compactMap { inline -> String? in
+        if case .text(let text) = inline { return text }
+        return nil
+      }.joined()
+      cmark_node_set_literal(container, "{--\(innerText)--}")
+      return container
+    case .criticSubstitution(let oldContent, let newContent):
+      // Render critic substitutions as {~~old~>new~~}
+      guard let container = cmark_node_new(CMARK_NODE_TEXT) else { return nil }
+      let oldText = oldContent.compactMap { inline -> String? in
+        if case .text(let text) = inline { return text }
+        return nil
+      }.joined()
+      let newText = newContent.compactMap { inline -> String? in
+        if case .text(let text) = inline { return text }
+        return nil
+      }.joined()
+      cmark_node_set_literal(container, "{~~\(oldText)~>\(newText)~~}")
+      return container
+    case .criticComment(let children):
+      // Render critic comments as {>>comment<<}
+      guard let container = cmark_node_new(CMARK_NODE_TEXT) else { return nil }
+      let innerText = children.compactMap { inline -> String? in
+        if case .text(let text) = inline { return text }
+        return nil
+      }.joined()
+      cmark_node_set_literal(container, "{>>\(innerText)<<}")
+      return container
+    case .criticHighlight(let children):
+      // Render critic highlights as {==text==}
+      guard let container = cmark_node_new(CMARK_NODE_TEXT) else { return nil }
+      let innerText = children.compactMap { inline -> String? in
+        if case .text(let text) = inline { return text }
+        return nil
+      }.joined()
+      cmark_node_set_literal(container, "{==\(innerText)==}")
+      return container
     case .link(let destination, let children):
       guard let node = cmark_node_new(CMARK_NODE_LINK) else { return nil }
       cmark_node_set_url(node, destination)
