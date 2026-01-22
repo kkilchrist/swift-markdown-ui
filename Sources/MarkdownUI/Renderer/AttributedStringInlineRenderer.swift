@@ -240,7 +240,11 @@ private struct AttributedStringInlineRenderer {
     }
 
     // Render new content with addition style
-    self.attributes = self.textStyles.criticSubstitutionNew.mergingAttributes(savedAttributes)
+    // DEBUG: Create fresh attributes with explicit green color
+    var newAttrs = savedAttributes
+    newAttrs.foregroundColor = .green
+    newAttrs.underlineStyle = .single
+    self.attributes = newAttrs
 
     for child in newContent {
       self.render(child)

@@ -441,6 +441,33 @@ final class MarkdownUICoreTests: XCTestCase {
     XCTAssertTrue(html.contains("<del class=\"critic-substitution-old\">March 15</del>"), "Expected substitution-old, got: \(html)")
     XCTAssertTrue(html.contains("<ins class=\"critic-substitution-new\">March 22</ins>"), "Expected substitution-new, got: \(html)")
     XCTAssertTrue(html.contains("<span class=\"critic-comment\">pushed back due to delays</span>"), "Expected comment, got: \(html)")
+
+    // Verify the InlineNode structure
+    if case .paragraph(let inlines) = blocks.first {
+      // Should have: text, substitution, comment, text(.)
+      print("DEBUG: InlineNode structure:")
+      for (i, inline) in inlines.enumerated() {
+        print("  [\(i)] \(inline)")
+      }
+
+      // Find the substitution node and verify its structure
+      for inline in inlines {
+        if case .criticSubstitution(let oldContent, let newContent) = inline {
+          print("DEBUG: Substitution oldContent: \(oldContent)")
+          print("DEBUG: Substitution newContent: \(newContent)")
+          // Verify oldContent has "March 15"
+          XCTAssertEqual(oldContent.count, 1, "oldContent should have 1 element")
+          if case .text(let oldText) = oldContent.first {
+            XCTAssertEqual(oldText, "March 15", "oldContent should be 'March 15'")
+          }
+          // Verify newContent has "March 22"
+          XCTAssertEqual(newContent.count, 1, "newContent should have 1 element")
+          if case .text(let newText) = newContent.first {
+            XCTAssertEqual(newText, "March 22", "newContent should be 'March 22'")
+          }
+        }
+      }
+    }
   }
 
   func testCriticMarkupMultipleInOneLine() {
