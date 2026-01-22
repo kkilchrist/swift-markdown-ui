@@ -392,19 +392,45 @@ final class MarkdownUICoreTests: XCTestCase {
     XCTAssertTrue(html.contains("<ins class=\"critic-addition\">simple addition</ins>"))
   }
 
-  func testCriticMarkupNestedFormattingLimitation() {
-    // Known limitation: Nested markdown formatting inside CriticMarkup may not work correctly.
-    // When cmark parses **bold** inside {++...++}, it creates nested inline nodes
-    // that can disrupt the placeholder pattern.
-    // This test documents the current behavior.
+  func testCriticMarkupNestedBoldFormatting() {
+    // Nested formatting inside CriticMarkup - bold
     let markdown = "This has {++**bold**++} text."
     let blocks = [BlockNode](markdown: markdown)
     let html = blocks.renderExtendedHTML()
 
-    // At minimum, should not crash and should produce some output
-    XCTAssertFalse(html.isEmpty)
-    // The content "bold" should appear somewhere in the output
-    XCTAssertTrue(html.contains("bold"))
+    // Should render as addition containing bold
+    XCTAssertTrue(html.contains("<ins class=\"critic-addition\"><strong>bold</strong></ins>"), "Expected bold inside addition, got: \(html)")
+  }
+
+  func testCriticMarkupNestedItalicFormatting() {
+    // Nested formatting inside CriticMarkup - italic
+    let markdown = "This has {--*italic*--} text."
+    let blocks = [BlockNode](markdown: markdown)
+    let html = blocks.renderExtendedHTML()
+
+    // Should render as deletion containing italic
+    XCTAssertTrue(html.contains("<del class=\"critic-deletion\"><em>italic</em></del>"), "Expected italic inside deletion, got: \(html)")
+  }
+
+  func testCriticMarkupSubstitutionWithNestedItalic() {
+    // Substitution with italic formatting inside both old and new content
+    let markdown = "I really love {~~*italic fonts*~>*italic font-styles*~~}."
+    let blocks = [BlockNode](markdown: markdown)
+    let html = blocks.renderExtendedHTML()
+
+    // Should render as: strikethrough italic "italic fonts" followed by underlined italic "italic font-styles"
+    XCTAssertTrue(html.contains("<del class=\"critic-substitution-old\"><em>italic fonts</em></del>"), "Expected italic inside substitution-old, got: \(html)")
+    XCTAssertTrue(html.contains("<ins class=\"critic-substitution-new\"><em>italic font-styles</em></ins>"), "Expected italic inside substitution-new, got: \(html)")
+  }
+
+  func testCriticMarkupSimpleSubstitution() {
+    // Simple substitution without nested formatting
+    let markdown = "Lorem {~~hipsum~>ipsum~~} dolor sit amet…"
+    let blocks = [BlockNode](markdown: markdown)
+    let html = blocks.renderExtendedHTML()
+
+    XCTAssertTrue(html.contains("<del class=\"critic-substitution-old\">hipsum</del>"), "Expected hipsum in substitution-old, got: \(html)")
+    XCTAssertTrue(html.contains("<ins class=\"critic-substitution-new\">ipsum</ins>"), "Expected ipsum in substitution-new, got: \(html)")
   }
 
   func testCriticMarkupMultipleInOneLine() {

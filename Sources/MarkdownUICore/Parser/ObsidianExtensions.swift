@@ -627,16 +627,8 @@ public extension Array where Element == InlineNode {
         // Not currently collecting - look for open markers
         if case .text(let content) = node {
           let (processed, newState) = processTextForCriticMarkupStart(content)
-          results.append(contentsOf: processed.prefix { shouldOutput($0, state: newState) })
-
-          // If we started collecting, save state
-          if case .collectingSimple(let type, _) = newState {
-            state = .collectingSimple(type: type, buffer: Array(processed.dropFirst(processed.count - countPendingNodes(processed, state: newState))))
-          } else if case .collectingSubstitutionOld(let buffer) = newState {
-            state = .collectingSubstitutionOld(oldBuffer: buffer)
-          } else {
-            results.append(contentsOf: processed.suffix(from: results.count - (results.count - processed.count)))
-          }
+          // Append all output nodes (anything before a collected marker)
+          results.append(contentsOf: processed)
           state = newState
         } else {
           // Non-text node - recursively process children
@@ -820,20 +812,6 @@ private func openSyntaxFor(_ type: CriticType) -> String {
   }
 }
 
-// Helper functions for state machine
-private func shouldOutput(_ node: InlineNode, state: CriticCollectionState) -> Bool {
-  if case .none = state { return true }
-  return false
-}
-
-private func countPendingNodes(_ nodes: [InlineNode], state: CriticCollectionState) -> Int {
-  switch state {
-  case .none: return 0
-  case .collectingSimple(_, let buffer): return buffer.count
-  case .collectingSubstitutionOld(let buffer): return buffer.count
-  case .collectingSubstitutionNew(_, let buffer): return buffer.count
-  }
-}
 
 /// Process text looking for CriticMarkup open markers
 /// Returns the processed nodes and the new collection state
