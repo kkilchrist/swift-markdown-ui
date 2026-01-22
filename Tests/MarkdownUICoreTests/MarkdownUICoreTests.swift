@@ -412,10 +412,10 @@ final class MarkdownUICoreTests: XCTestCase {
     let blocks = [BlockNode](markdown: markdown)
     let html = blocks.renderExtendedHTML()
 
-    XCTAssertTrue(html.contains("<del class=\"critic-substitution-old\">quick</del>"))
-    XCTAssertTrue(html.contains("<ins class=\"critic-substitution-new\">fast</ins>"))
-    XCTAssertTrue(html.contains("<ins class=\"critic-addition\">brown</ins>"))
-    XCTAssertTrue(html.contains("<del class=\"critic-deletion\">jumped</del>"))
+    XCTAssertTrue(html.contains("<del class=\"critic-substitution-old\">quick</del>"), "Expected substitution-old, got: \(html)")
+    XCTAssertTrue(html.contains("<ins class=\"critic-substitution-new\">fast</ins>"), "Expected substitution-new, got: \(html)")
+    XCTAssertTrue(html.contains("<ins class=\"critic-addition\">brown</ins>"), "Expected addition, got: \(html)")
+    XCTAssertTrue(html.contains("<del class=\"critic-deletion\">jumped</del>"), "Expected deletion, got: \(html)")
   }
 
   func testCriticMarkupInHeading() {

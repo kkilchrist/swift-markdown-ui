@@ -578,77 +578,271 @@ private func processTextForHighlightMarkers(
 
 // MARK: - CriticMarkup Syntax
 
+/// State for tracking CriticMarkup collection across nodes
+private enum CriticCollectionState {
+  case none
+  case collectingSimple(type: CriticType, buffer: [InlineNode])
+  case collectingSubstitutionOld(oldBuffer: [InlineNode])
+  case collectingSubstitutionNew(oldBuffer: [InlineNode], newBuffer: [InlineNode])
+}
+
+private enum CriticType {
+  case addition
+  case deletion
+  case substitution
+  case comment
+  case highlight
+
+  var closePlaceholder: String {
+    switch self {
+    case .addition: return criticAdditionClose
+    case .deletion: return criticDeletionClose
+    case .substitution: return criticSubstitutionClose
+    case .comment: return criticCommentClose
+    case .highlight: return criticHighlightClose
+    }
+  }
+
+  func makeNode(children: [InlineNode]) -> InlineNode {
+    switch self {
+    case .addition: return .criticAddition(children: children)
+    case .deletion: return .criticDeletion(children: children)
+    case .comment: return .criticComment(children: children)
+    case .highlight: return .criticHighlight(children: children)
+    case .substitution: fatalError("Use makeSubstitutionNode instead")
+    }
+  }
+}
+
 public extension Array where Element == InlineNode {
   /// Restores CriticMarkup placeholders back into proper critic markup nodes.
   /// This handles nested formatting correctly by collecting all nodes between open/close markers.
   func restoringCriticMarkup() -> [InlineNode] {
     var results: [InlineNode] = []
-    var i = 0
+    var state: CriticCollectionState = .none
 
-    while i < self.count {
-      let node = self[i]
+    for node in self {
+      switch state {
+      case .none:
+        // Not currently collecting - look for open markers
+        if case .text(let content) = node {
+          let (processed, newState) = processTextForCriticMarkupStart(content)
+          results.append(contentsOf: processed.prefix { shouldOutput($0, state: newState) })
 
-      switch node {
-      case .text(let content):
-        // Check for CriticMarkup placeholders in the text
-        let processed = processTextForCriticMarkup(content)
-        results.append(contentsOf: processed)
+          // If we started collecting, save state
+          if case .collectingSimple(let type, _) = newState {
+            state = .collectingSimple(type: type, buffer: Array(processed.dropFirst(processed.count - countPendingNodes(processed, state: newState))))
+          } else if case .collectingSubstitutionOld(let buffer) = newState {
+            state = .collectingSubstitutionOld(oldBuffer: buffer)
+          } else {
+            results.append(contentsOf: processed.suffix(from: results.count - (results.count - processed.count)))
+          }
+          state = newState
+        } else {
+          // Non-text node - recursively process children
+          results.append(processNodeRecursively(node))
+        }
 
-      case .emphasis(let children):
-        results.append(.emphasis(children: children.restoringCriticMarkup()))
+      case .collectingSimple(let type, var buffer):
+        // Currently collecting for a simple type (addition, deletion, comment, highlight)
+        if case .text(let content) = node {
+          // Look for close marker
+          if let closeRange = content.range(of: type.closePlaceholder) {
+            // Found close - add content before close to buffer
+            let beforeClose = String(content[..<closeRange.lowerBound])
+            if !beforeClose.isEmpty {
+              buffer.append(.text(beforeClose))
+            }
 
-      case .strong(let children):
-        results.append(.strong(children: children.restoringCriticMarkup()))
+            // Create the CriticMarkup node
+            results.append(type.makeNode(children: buffer))
 
-      case .strikethrough(let children):
-        results.append(.strikethrough(children: children.restoringCriticMarkup()))
+            // Process remaining text after close marker
+            let afterClose = String(content[closeRange.upperBound...])
+            if !afterClose.isEmpty {
+              let (processed, newState) = processTextForCriticMarkupStart(afterClose)
+              results.append(contentsOf: processed)
+              state = newState
+            } else {
+              state = .none
+            }
+          } else {
+            // No close marker - add entire text to buffer
+            buffer.append(.text(content))
+            state = .collectingSimple(type: type, buffer: buffer)
+          }
+        } else {
+          // Non-text node - add to buffer (recursively process)
+          buffer.append(processNodeRecursively(node))
+          state = .collectingSimple(type: type, buffer: buffer)
+        }
 
-      case .highlight(let children):
-        results.append(.highlight(children: children.restoringCriticMarkup()))
+      case .collectingSubstitutionOld(var oldBuffer):
+        // Collecting old content of substitution, looking for arrow
+        if case .text(let content) = node {
+          if let arrowRange = content.range(of: criticSubstitutionArrow) {
+            // Found arrow - add content before arrow to old buffer
+            let beforeArrow = String(content[..<arrowRange.lowerBound])
+            if !beforeArrow.isEmpty {
+              oldBuffer.append(.text(beforeArrow))
+            }
 
-      case .link(let destination, let children):
-        results.append(.link(destination: destination, children: children.restoringCriticMarkup()))
+            // Start collecting new content
+            let afterArrow = String(content[arrowRange.upperBound...])
+            if let closeRange = afterArrow.range(of: criticSubstitutionClose) {
+              // Found close in same text node
+              let newContent = String(afterArrow[..<closeRange.lowerBound])
+              var newBuffer: [InlineNode] = []
+              if !newContent.isEmpty {
+                newBuffer.append(.text(newContent))
+              }
+              results.append(.criticSubstitution(oldContent: oldBuffer, newContent: newBuffer))
 
-      case .image(let source, let children):
-        results.append(.image(source: source, children: children.restoringCriticMarkup()))
+              // Process remaining text
+              let afterClose = String(afterArrow[closeRange.upperBound...])
+              if !afterClose.isEmpty {
+                let (processed, newState) = processTextForCriticMarkupStart(afterClose)
+                results.append(contentsOf: processed)
+                state = newState
+              } else {
+                state = .none
+              }
+            } else {
+              // No close yet - continue collecting new content
+              var newBuffer: [InlineNode] = []
+              if !afterArrow.isEmpty {
+                newBuffer.append(.text(afterArrow))
+              }
+              state = .collectingSubstitutionNew(oldBuffer: oldBuffer, newBuffer: newBuffer)
+            }
+          } else {
+            // No arrow - add to old buffer
+            oldBuffer.append(.text(content))
+            state = .collectingSubstitutionOld(oldBuffer: oldBuffer)
+          }
+        } else {
+          oldBuffer.append(processNodeRecursively(node))
+          state = .collectingSubstitutionOld(oldBuffer: oldBuffer)
+        }
 
-      case .criticAddition(let children):
-        results.append(.criticAddition(children: children.restoringCriticMarkup()))
+      case .collectingSubstitutionNew(let oldBuffer, var newBuffer):
+        // Collecting new content of substitution, looking for close
+        if case .text(let content) = node {
+          if let closeRange = content.range(of: criticSubstitutionClose) {
+            // Found close
+            let beforeClose = String(content[..<closeRange.lowerBound])
+            if !beforeClose.isEmpty {
+              newBuffer.append(.text(beforeClose))
+            }
+            results.append(.criticSubstitution(oldContent: oldBuffer, newContent: newBuffer))
 
-      case .criticDeletion(let children):
-        results.append(.criticDeletion(children: children.restoringCriticMarkup()))
-
-      case .criticSubstitution(let oldContent, let newContent):
-        results.append(.criticSubstitution(
-          oldContent: oldContent.restoringCriticMarkup(),
-          newContent: newContent.restoringCriticMarkup()
-        ))
-
-      case .criticComment(let children):
-        results.append(.criticComment(children: children.restoringCriticMarkup()))
-
-      case .criticHighlight(let children):
-        results.append(.criticHighlight(children: children.restoringCriticMarkup()))
-
-      default:
-        results.append(node)
+            // Process remaining text
+            let afterClose = String(content[closeRange.upperBound...])
+            if !afterClose.isEmpty {
+              let (processed, newState) = processTextForCriticMarkupStart(afterClose)
+              results.append(contentsOf: processed)
+              state = newState
+            } else {
+              state = .none
+            }
+          } else {
+            // No close - add to new buffer
+            newBuffer.append(.text(content))
+            state = .collectingSubstitutionNew(oldBuffer: oldBuffer, newBuffer: newBuffer)
+          }
+        } else {
+          newBuffer.append(processNodeRecursively(node))
+          state = .collectingSubstitutionNew(oldBuffer: oldBuffer, newBuffer: newBuffer)
+        }
       }
+    }
 
-      i += 1
+    // Handle unclosed CriticMarkup at end
+    switch state {
+    case .none:
+      break
+    case .collectingSimple(let type, let buffer):
+      // Unclosed - output original syntax + buffer content
+      results.append(.text(openSyntaxFor(type)))
+      results.append(contentsOf: buffer)
+    case .collectingSubstitutionOld(let oldBuffer):
+      results.append(.text("{~~"))
+      results.append(contentsOf: oldBuffer)
+    case .collectingSubstitutionNew(let oldBuffer, let newBuffer):
+      results.append(.text("{~~"))
+      results.append(contentsOf: oldBuffer)
+      results.append(.text("~>"))
+      results.append(contentsOf: newBuffer)
     }
 
     return results
   }
 }
 
-/// Processes a text node for CriticMarkup placeholders.
-/// Handles all CriticMarkup types including substitution.
-private func processTextForCriticMarkup(_ text: String) -> [InlineNode] {
+/// Process a node recursively for CriticMarkup
+private func processNodeRecursively(_ node: InlineNode) -> InlineNode {
+  switch node {
+  case .emphasis(let children):
+    return .emphasis(children: children.restoringCriticMarkup())
+  case .strong(let children):
+    return .strong(children: children.restoringCriticMarkup())
+  case .strikethrough(let children):
+    return .strikethrough(children: children.restoringCriticMarkup())
+  case .highlight(let children):
+    return .highlight(children: children.restoringCriticMarkup())
+  case .link(let destination, let children):
+    return .link(destination: destination, children: children.restoringCriticMarkup())
+  case .image(let source, let children):
+    return .image(source: source, children: children.restoringCriticMarkup())
+  case .criticAddition(let children):
+    return .criticAddition(children: children.restoringCriticMarkup())
+  case .criticDeletion(let children):
+    return .criticDeletion(children: children.restoringCriticMarkup())
+  case .criticSubstitution(let old, let new):
+    return .criticSubstitution(oldContent: old.restoringCriticMarkup(), newContent: new.restoringCriticMarkup())
+  case .criticComment(let children):
+    return .criticComment(children: children.restoringCriticMarkup())
+  case .criticHighlight(let children):
+    return .criticHighlight(children: children.restoringCriticMarkup())
+  default:
+    return node
+  }
+}
+
+/// Get original syntax for a CriticMarkup type
+private func openSyntaxFor(_ type: CriticType) -> String {
+  switch type {
+  case .addition: return "{++"
+  case .deletion: return "{--"
+  case .substitution: return "{~~"
+  case .comment: return "{>>"
+  case .highlight: return "{=="
+  }
+}
+
+// Helper functions for state machine
+private func shouldOutput(_ node: InlineNode, state: CriticCollectionState) -> Bool {
+  if case .none = state { return true }
+  return false
+}
+
+private func countPendingNodes(_ nodes: [InlineNode], state: CriticCollectionState) -> Int {
+  switch state {
+  case .none: return 0
+  case .collectingSimple(_, let buffer): return buffer.count
+  case .collectingSubstitutionOld(let buffer): return buffer.count
+  case .collectingSubstitutionNew(_, let buffer): return buffer.count
+  }
+}
+
+/// Process text looking for CriticMarkup open markers
+/// Returns the processed nodes and the new collection state
+private func processTextForCriticMarkupStart(_ text: String) -> ([InlineNode], CriticCollectionState) {
   var output: [InlineNode] = []
   var current = text.startIndex
 
   while current < text.endIndex {
-    // Find the next placeholder (whichever comes first)
+    // Find the next open placeholder
     let searches: [(placeholder: String, type: CriticType)] = [
       (criticAdditionOpen, .addition),
       (criticDeletionOpen, .deletion),
@@ -673,7 +867,7 @@ private func processTextForCriticMarkup(_ text: String) -> [InlineNode] {
       if !remaining.isEmpty {
         output.append(.text(remaining))
       }
-      break
+      return (output, .none)
     }
 
     // Add text before the placeholder
@@ -683,76 +877,60 @@ private func processTextForCriticMarkup(_ text: String) -> [InlineNode] {
     }
 
     current = match.range.upperBound
+    let remainingText = String(text[current...])
 
-    // Process based on type
+    // Try to find close marker in remaining text
     switch match.type {
-    case .addition:
-      if let closeRange = text.range(of: criticAdditionClose, range: current..<text.endIndex) {
-        let content = String(text[current..<closeRange.lowerBound])
-        output.append(.criticAddition(children: [.text(content)]))
-        current = closeRange.upperBound
-      } else {
-        // No close marker found - output original syntax as text
-        output.append(.text("{++"))
-      }
-
-    case .deletion:
-      if let closeRange = text.range(of: criticDeletionClose, range: current..<text.endIndex) {
-        let content = String(text[current..<closeRange.lowerBound])
-        output.append(.criticDeletion(children: [.text(content)]))
-        current = closeRange.upperBound
-      } else {
-        // No close marker found - output original syntax as text
-        output.append(.text("{--"))
-      }
-
     case .substitution:
-      // Find arrow and close markers
-      if let arrowRange = text.range(of: criticSubstitutionArrow, range: current..<text.endIndex),
-         let closeRange = text.range(of: criticSubstitutionClose, range: arrowRange.upperBound..<text.endIndex) {
-        let oldContent = String(text[current..<arrowRange.lowerBound])
-        let newContent = String(text[arrowRange.upperBound..<closeRange.lowerBound])
-        output.append(.criticSubstitution(
-          oldContent: [.text(oldContent)],
-          newContent: [.text(newContent)]
-        ))
-        current = closeRange.upperBound
+      // Substitution needs arrow then close
+      if let arrowRange = remainingText.range(of: criticSubstitutionArrow) {
+        let oldContent = String(remainingText[..<arrowRange.lowerBound])
+        let afterArrow = String(remainingText[arrowRange.upperBound...])
+
+        if let closeRange = afterArrow.range(of: criticSubstitutionClose) {
+          // Complete substitution in this text node
+          let newContent = String(afterArrow[..<closeRange.lowerBound])
+          output.append(.criticSubstitution(
+            oldContent: oldContent.isEmpty ? [] : [.text(oldContent)],
+            newContent: newContent.isEmpty ? [] : [.text(newContent)]
+          ))
+          // Advance: oldContent + arrow(1 char) + newContent + close(1 char)
+          current = text.index(current, offsetBy: oldContent.count + 1 + newContent.count + 1)
+          continue
+        } else {
+          // Arrow found but no close - start collecting new content
+          var oldBuffer: [InlineNode] = []
+          if !oldContent.isEmpty { oldBuffer.append(.text(oldContent)) }
+          var newBuffer: [InlineNode] = []
+          let afterArrowContent = String(afterArrow)
+          if !afterArrowContent.isEmpty { newBuffer.append(.text(afterArrowContent)) }
+          return (output, .collectingSubstitutionNew(oldBuffer: oldBuffer, newBuffer: newBuffer))
+        }
       } else {
-        // No complete substitution found - output original syntax as text
-        output.append(.text("{~~"))
+        // No arrow - start collecting old content
+        var buffer: [InlineNode] = []
+        if !remainingText.isEmpty { buffer.append(.text(remainingText)) }
+        return (output, .collectingSubstitutionOld(oldBuffer: buffer))
       }
 
-    case .comment:
-      if let closeRange = text.range(of: criticCommentClose, range: current..<text.endIndex) {
-        let content = String(text[current..<closeRange.lowerBound])
-        output.append(.criticComment(children: [.text(content)]))
-        current = closeRange.upperBound
+    default:
+      // Simple types (addition, deletion, comment, highlight)
+      if let closeRange = remainingText.range(of: match.type.closePlaceholder) {
+        // Complete in this text node
+        let content = String(remainingText[..<closeRange.lowerBound])
+        output.append(match.type.makeNode(children: content.isEmpty ? [] : [.text(content)]))
+        current = text.index(current, offsetBy: content.count + match.type.closePlaceholder.count)
+        continue
       } else {
-        // No close marker found - output original syntax as text
-        output.append(.text("{>>"))
-      }
-
-    case .highlight:
-      if let closeRange = text.range(of: criticHighlightClose, range: current..<text.endIndex) {
-        let content = String(text[current..<closeRange.lowerBound])
-        output.append(.criticHighlight(children: [.text(content)]))
-        current = closeRange.upperBound
-      } else {
-        // No close marker found - output original syntax as text
-        output.append(.text("{=="))
+        // No close - start collecting
+        var buffer: [InlineNode] = []
+        if !remainingText.isEmpty { buffer.append(.text(remainingText)) }
+        return (output, .collectingSimple(type: match.type, buffer: buffer))
       }
     }
   }
 
-  return output
-}
-
-private enum CriticType {
-  case addition
-  case deletion
-  case substitution
-  case comment
-  case highlight
+  return (output, .none)
 }
 
 // MARK: - Callout Syntax (> [!type])
