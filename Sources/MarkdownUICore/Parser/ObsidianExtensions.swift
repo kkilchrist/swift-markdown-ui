@@ -633,40 +633,6 @@ public extension Array where Element == InlineNode {
     var results: [InlineNode] = []
     var state: CriticCollectionState = .none
 
-    // DEBUG: dump incoming nodes when any critic-substitution sentinel is present anywhere in self
-    let dumpAll: Bool = self.contains { node -> Bool in
-      if case .text(let s) = node {
-        return s.contains(criticSubstitutionOpen) || s.contains(criticSubstitutionArrow) || s.contains(criticSubstitutionClose)
-      }
-      return false
-    }
-    if dumpAll {
-      print("DEBUG-RCM input=\(self.count) nodes:")
-      for (i, n) in self.enumerated() {
-        if case .text(let s) = n {
-          var hex = ""
-          for scalar in s.unicodeScalars {
-            hex += String(format: "U+%04X ", scalar.value)
-          }
-          print("  [\(i)] text scalars=\(hex)")
-        } else {
-          print("  [\(i)] \(n)")
-        }
-      }
-    }
-    defer {
-      if dumpAll {
-        print("DEBUG-RCM exit results=\(results.count) nodes:")
-        for (i, n) in results.enumerated() {
-          if case .criticSubstitution(let old, let new) = n {
-            print("  [\(i)] criticSubstitution old=\(old) new=\(new)")
-          } else {
-            print("  [\(i)] \(n)")
-          }
-        }
-      }
-    }
-
     for node in self {
       switch state {
       case .none:
