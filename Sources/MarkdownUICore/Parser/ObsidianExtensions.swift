@@ -654,6 +654,18 @@ public extension Array where Element == InlineNode {
         }
       }
     }
+    defer {
+      if dumpAll {
+        print("DEBUG-RCM exit results=\(results.count) nodes:")
+        for (i, n) in results.enumerated() {
+          if case .criticSubstitution(let old, let new) = n {
+            print("  [\(i)] criticSubstitution old=\(old) new=\(new)")
+          } else {
+            print("  [\(i)] \(n)")
+          }
+        }
+      }
+    }
 
     for node in self {
       switch state {
