@@ -643,11 +643,13 @@ public extension Array where Element == InlineNode {
     if dumpAll {
       print("DEBUG-RCM input=\(self.count) nodes:")
       for (i, n) in self.enumerated() {
-        switch n {
-        case .text(let s):
-          let scalars = Array(s.unicodeScalars).map { String(format: "U+%04X", $0.value) }
-          print("  [\(i)] text scalars=\(scalars.joined(separator: " "))")
-        default:
+        if case .text(let s) = n {
+          var hex = ""
+          for scalar in s.unicodeScalars {
+            hex += String(format: "U+%04X ", scalar.value)
+          }
+          print("  [\(i)] text scalars=\(hex)")
+        } else {
           print("  [\(i)] \(n)")
         }
       }
