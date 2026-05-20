@@ -633,6 +633,26 @@ public extension Array where Element == InlineNode {
     var results: [InlineNode] = []
     var state: CriticCollectionState = .none
 
+    // DEBUG: dump incoming nodes when any critic-substitution sentinel is present anywhere in self
+    let dumpAll: Bool = self.contains { node -> Bool in
+      if case .text(let s) = node {
+        return s.contains(criticSubstitutionOpen) || s.contains(criticSubstitutionArrow) || s.contains(criticSubstitutionClose)
+      }
+      return false
+    }
+    if dumpAll {
+      print("DEBUG-RCM input=\(self.count) nodes:")
+      for (i, n) in self.enumerated() {
+        switch n {
+        case .text(let s):
+          let scalars = Array(s.unicodeScalars).map { String(format: "U+%04X", $0.value) }
+          print("  [\(i)] text scalars=\(scalars.joined(separator: " "))")
+        default:
+          print("  [\(i)] \(n)")
+        }
+      }
+    }
+
     for node in self {
       switch state {
       case .none:
