@@ -722,18 +722,45 @@ final class MarkdownUICoreTests: XCTestCase {
     XCTAssertEqual(allMathContent(in: blocks), [])
   }
 
-  func testTwoCurrencyAmountsInSameLine() {
-    // Currency-heavy sentences are a known false-positive risk for $...$ math.
-    // We accept a small false-positive rate (KaTeX renders text-as-math acceptably)
-    // but call out the behavior so anyone re-tuning the regex can see what changes.
-    // This test documents the current behavior, not a guarantee.
-    let markdown = "It costs $5 and $10 for total."
-    let blocks = [BlockNode](markdown: markdown)
-    // Today the non-greedy regex matches the content between the two `$`s.
-    // Acceptable for now — the host's KaTeX provider renders "5 and " as math text,
-    // which is mildly ugly but reversible by writing currency as `\$5`.
-    let math = allMathContent(in: blocks)
-    XCTAssertTrue(math.isEmpty || math == ["5 and "], "Unexpected math parse: \(math)")
+  // MARK: Pandoc-style dollar-math disambiguation
+  //
+  // Three rules, no more no less:
+  //   A. Opener `$` is NOT followed by whitespace.
+  //   B. Closer `$` is NOT preceded by whitespace.
+  //   C. Closer `$` is NOT followed by a digit.
+  //
+  // Every row of the FEATURE_ROADMAP spec table is pinned here as a positive
+  // assertion. Currency cases (`$5 and $10`, `It costs $5`) are now hard
+  // assertions, not "documented limitations".
+
+  func testCurrencyTwoAmountsSameLineNotMath() {
+    // Rule B kicks in: the would-be closer is space-preceded.
+    let blocks = [BlockNode](markdown: "It costs $5 and $10 for total.")
+    XCTAssertEqual(allMathContent(in: blocks), [])
+  }
+
+  func testMathOpenerFollowedByDigit() {
+    // `$3+4=12$` IS math. No rule rejects opener-followed-by-digit; the
+    // closer is non-space-preceded (rule B) and not digit-followed (rule C).
+    let blocks = [BlockNode](markdown: "Compute $3+4=12$ here.")
+    XCTAssertEqual(allMathContent(in: blocks), ["3+4=12"])
+  }
+
+  func testMathFollowedByPeriod() {
+    let blocks = [BlockNode](markdown: "Energy is $E=mc^2$.")
+    XCTAssertEqual(allMathContent(in: blocks), ["E=mc^2"])
+  }
+
+  func testMathOpenerWithLeadingWhitespaceIsNotMath() {
+    // Rule A: opener followed by whitespace is not math.
+    let blocks = [BlockNode](markdown: "Literal: $ E=mc^2 $ here.")
+    XCTAssertEqual(allMathContent(in: blocks), [])
+  }
+
+  func testMathCloserFollowedByDigitIsNotMath() {
+    // Rule C: `$E=mc^2$5` is not math followed by 5 — it's literal.
+    let blocks = [BlockNode](markdown: "Adjacent: $E=mc^2$5 here.")
+    XCTAssertEqual(allMathContent(in: blocks), [])
   }
 
   func testEscapedDollarNotMath() {

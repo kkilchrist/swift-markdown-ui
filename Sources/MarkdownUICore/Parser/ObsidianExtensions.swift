@@ -170,13 +170,23 @@ public extension String {
       }
     }
 
-    // Pass 2: dollar form `$...$`.
-    // - `(?<![\\$])` ensures we're not preceded by `\` (escape) or `$` (display math).
-    // - `[^$\n]+?` content excludes `$` and newlines; backslash commands like
-    //   `\mathbf{u}` are fine because `\` `{` `}` aren't excluded.
-    // - `(?<!\\)` before the closer rejects `\$` as a closer.
-    // - `(?!\$)` ensures we don't match a `$$` closer.
-    let dollarPattern = #"(?<![\\$])\$([^$\n]+?)(?<!\\)\$(?!\$)"#
+    // Pass 2: dollar form `$...$` using Pandoc / MultiMarkdown disambiguation
+    // (also what MathJax and KaTeX auto-render adopt). Three rules:
+    //
+    //   A. Opener `$` is NOT followed by whitespace.   → `$ x $` is not math.
+    //   B. Closer `$` is NOT preceded by whitespace.   → makes `$5 and $10`
+    //                                                    stay literal because
+    //                                                    the would-be closer is
+    //                                                    space-preceded.
+    //   C. Closer `$` is NOT followed by a digit.      → `$E=mc^2$5` is not math.
+    //
+    // Implemented as lookbehinds/lookaheads around `[^$\n]+?` content. The two
+    // extra anti-escape lookarounds (`(?<![\\$])` on the opener, `(?<!\\)` on
+    // the closer) reject `\$` and prevent the regex from cutting into a `$$`
+    // display-math pair (the host pre-converts `$$..$$` blocks separately).
+    //
+    // Note: no rule about digits AFTER the opener — `$3+4=12$` is math.
+    let dollarPattern = #"(?<![\\$])\$(?!\s)([^$\n]+?)(?<![\s\\])\$(?![\$\d])"#
     if let regex = try? NSRegularExpression(pattern: dollarPattern, options: []) {
       let nsRange = NSRange(result.startIndex..., in: result)
       let matches = regex.matches(in: result, options: [], range: nsRange).reversed()
