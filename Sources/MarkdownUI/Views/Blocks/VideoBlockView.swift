@@ -14,8 +14,7 @@ struct VideoBlockView: View {
   var body: some View {
     #if canImport(AVKit) && os(macOS)
     if let url = resolvedURL {
-      AVPlayerViewRepresentable(url: url)
-        .frame(width: frameWidth, height: frameHeight)
+      SizedVideoPlayer(url: url, explicitWidth: width, explicitHeight: height)
     } else {
       placeholder
     }
@@ -39,27 +38,51 @@ struct VideoBlockView: View {
     let encoded = source.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? source
     return URL(string: encoded, relativeTo: baseURL)?.absoluteURL
   }
-
-  private var frameWidth: CGFloat? {
-    width.map(CGFloat.init)
-  }
-
-  private var frameHeight: CGFloat? {
-    if let height {
-      return CGFloat(height)
-    }
-    // Fall back to 16:9 when only a width was specified so the player has a size to render into.
-    return width.map { CGFloat($0) * 9.0 / 16.0 }
-  }
 }
 
 #if canImport(AVKit) && os(macOS)
+private struct SizedVideoPlayer: View {
+  let url: URL
+  let explicitWidth: Int?
+  let explicitHeight: Int?
+
+  @State private var naturalAspectRatio: CGFloat?
+
+  var body: some View {
+    AVPlayerViewRepresentable(url: url)
+      .aspectRatio(effectiveAspectRatio, contentMode: .fit)
+      .frame(maxWidth: explicitWidth.map(CGFloat.init))
+      .task(id: url) { await loadAspectRatio() }
+  }
+
+  private var effectiveAspectRatio: CGFloat {
+    if let w = explicitWidth, let h = explicitHeight, h > 0 {
+      return CGFloat(w) / CGFloat(h)
+    }
+    return naturalAspectRatio ?? 16.0 / 9.0
+  }
+
+  private func loadAspectRatio() async {
+    let asset = AVURLAsset(url: url)
+    do {
+      let tracks = try await asset.loadTracks(withMediaType: .video)
+      guard let track = tracks.first else { return }
+      let size = try await track.load(.naturalSize)
+      guard size.height > 0 else { return }
+      await MainActor.run { naturalAspectRatio = size.width / size.height }
+    } catch {
+      // Asset didn't report size; aspectRatio falls through to the 16:9 default.
+    }
+  }
+}
+
 private struct AVPlayerViewRepresentable: NSViewRepresentable {
   let url: URL
 
   func makeNSView(context: Context) -> AVPlayerView {
     let view = AVPlayerView()
     view.controlsStyle = .inline
+    view.videoGravity = .resizeAspect
     view.player = AVPlayer(url: url)
     return view
   }
