@@ -810,4 +810,50 @@ final class MarkdownUICoreTests: XCTestCase {
     let rewritten: [BlockNode] = blocks.rewrite { (inline: InlineNode) in [inline] }
     XCTAssertEqual(allMathContent(in: rewritten), ["E=mc^2"], "Math node lost or mangled by identity rewrite")
   }
+
+  /// End-to-end document mirroring the FEATURE_ROADMAP repro cases for §0.4,
+  /// §0.5, and §0.6. Verifies every form produces math nodes (or, for `\[...\]`,
+  /// a math code block) in a single parse pass.
+  func testRoadmapMathBugRepro() {
+    let markdown = """
+    \\[
+    e^{i\\pi} + 1 = 0
+    \\]
+
+    where $\\mathbf{u}$ is velocity, $p$ is pressure, $\\rho$ is density, $\\mu$ is dynamic viscosity, and $\\mathbf{f}$ is body force per unit volume.
+
+    > The Euler identity is $e^{i\\pi}+1=0$.
+
+    > [!note]
+    > Inside a callout: $A = \\pi r^2$.
+
+    Inline LaTeX: \\(x^2 + y^2 = z^2\\) Pythagorean.
+    """
+    let blocks = [BlockNode](markdown: markdown)
+    let math = allMathContent(in: blocks)
+
+    // The dense backslash-command paragraph (§0.6)
+    XCTAssertTrue(math.contains("\\mathbf{u}"), "§0.6 missing \\mathbf{u}: \(math)")
+    XCTAssertTrue(math.contains("p"), "§0.6 missing p: \(math)")
+    XCTAssertTrue(math.contains("\\rho"), "§0.6 missing \\rho: \(math)")
+    XCTAssertTrue(math.contains("\\mu"), "§0.6 missing \\mu: \(math)")
+    XCTAssertTrue(math.contains("\\mathbf{f}"), "§0.6 missing \\mathbf{f}: \(math)")
+
+    // Blockquote (§0.5)
+    XCTAssertTrue(math.contains("e^{i\\pi}+1=0"), "§0.5 blockquote math missing: \(math)")
+
+    // Callout (§0.5)
+    XCTAssertTrue(math.contains("A = \\pi r^2"), "§0.5 callout math missing: \(math)")
+
+    // \(...\) form (§0.4)
+    XCTAssertTrue(math.contains("x^2 + y^2 = z^2"), "§0.4 \\(...\\) missing: \(math)")
+
+    // \[...\] becomes a math code block (§0.4)
+    let hasBlockMath = blocks.contains { block in
+      if case .codeBlock(let info, let content) = block, info == "math",
+         content.contains("e^{i\\pi} + 1 = 0") { return true }
+      return false
+    }
+    XCTAssertTrue(hasBlockMath, "§0.4 \\[...\\] block math missing")
+  }
 }
