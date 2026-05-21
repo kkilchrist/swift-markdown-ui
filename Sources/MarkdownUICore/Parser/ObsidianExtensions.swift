@@ -11,6 +11,22 @@ private let imageDimensionPlaceholder = "\u{E000}"
 private let highlightOpenPlaceholder = "\u{E001}"
 private let highlightClosePlaceholder = "\u{E002}"
 
+// MARK: - Inline Math Placeholders
+//
+// We protect inline math (`$...$` and `\(...\)`) by replacing the delimiters with
+// Private Use Area characters before cmark parses the document. After cmark
+// produces a syntax tree, we walk inline text nodes and turn placeholder pairs
+// back into `.math(content)` nodes (a leaf, like `.code`).
+//
+// Why placeholders: cmark-gfm has no math extension, and writing one would
+// require touching the C source. The placeholder approach is what we use for
+// every other custom syntax in this file (highlights, CriticMarkup).
+
+/// Inline math open placeholder. Pairs with `inlineMathClosePlaceholder`.
+private let inlineMathOpenPlaceholder = "\u{E003}"
+/// Inline math close placeholder.
+private let inlineMathClosePlaceholder = "\u{E004}"
+
 // MARK: - CriticMarkup Placeholders
 
 /// Placeholder characters for CriticMarkup syntax.
@@ -66,9 +82,115 @@ public extension String {
     // Also restore highlight placeholders
     result = result.replacingOccurrences(of: highlightOpenPlaceholder, with: "==")
     result = result.replacingOccurrences(of: highlightClosePlaceholder, with: "==")
+    // Also restore inline-math placeholders back to dollar signs (canonical form
+    // inside code blocks — the original delimiter form is lost by the time we
+    // get here, but `$...$` round-trips through cmark and KaTeX).
+    result = result.replacingOccurrences(of: inlineMathOpenPlaceholder, with: "$")
+    result = result.replacingOccurrences(of: inlineMathClosePlaceholder, with: "$")
     // Also restore image dimension placeholder
     result = result.replacingOccurrences(of: imageDimensionPlaceholder, with: "|")
     return result
+  }
+
+  /// Converts block-math `\[...\]` fences (display math) into fenced code blocks
+  /// with `math` as the info string, so they flow through the same code-block
+  /// provider path as `$$...$$` (which the host app pre-converts before parsing).
+  ///
+  /// Matches two shapes:
+  /// 1. Multi-line: `\[` on its own line, content, `\]` on its own line.
+  /// 2. Single-line on its own line: `\[content\]` (display math, no inline form).
+  ///
+  /// Returns the rewritten string. Idempotent if no matches are found.
+  public func convertingBackslashBracketBlockMath() -> String {
+    var result = self
+
+    // 1. Multi-line: \[ on its own line, content, then \] on its own line.
+    let multilinePattern = #"(?:^|\n)[ \t]*\\\[[ \t]*\n([\s\S]*?)\n[ \t]*\\\][ \t]*(?:\n|$)"#
+    if let regex = try? NSRegularExpression(pattern: multilinePattern, options: []) {
+      let nsRange = NSRange(result.startIndex..., in: result)
+      let matches = regex.matches(in: result, options: [], range: nsRange).reversed()
+      for match in matches {
+        guard let fullRange = Range(match.range, in: result),
+              let contentRange = Range(match.range(at: 1), in: result) else { continue }
+        let content = String(result[contentRange])
+        let replacement = "\n```math\n\(content)\n```\n"
+        result.replaceSubrange(fullRange, with: replacement)
+      }
+    }
+
+    // 2. Single-line on its own line: \[content\] (display math equivalent).
+    let singlelinePattern = #"(?:^|\n)[ \t]*\\\[([^\n]+?)\\\][ \t]*(?:\n|$)"#
+    if let regex = try? NSRegularExpression(pattern: singlelinePattern, options: []) {
+      let nsRange = NSRange(result.startIndex..., in: result)
+      let matches = regex.matches(in: result, options: [], range: nsRange).reversed()
+      for match in matches {
+        guard let fullRange = Range(match.range, in: result),
+              let contentRange = Range(match.range(at: 1), in: result) else { continue }
+        let content = String(result[contentRange])
+        let replacement = "\n```math\n\(content)\n```\n"
+        result.replaceSubrange(fullRange, with: replacement)
+      }
+    }
+
+    return result
+  }
+
+  /// Protects inline math (`$...$` and `\(...\)`) from cmark parsing by replacing
+  /// the delimiters with placeholders. A later post-parse pass converts the
+  /// placeholder pairs (still inside text nodes) into `.math(content)` leaves.
+  ///
+  /// Rules:
+  /// - `$...$`: content must be non-empty, must not contain `$` or newline.
+  ///   `$$` (display math) is rejected via negative lookbehind/lookahead so the
+  ///   host can pre-convert display math separately. A `$` not paired with a
+  ///   closing `$` on the same line stays untouched (handles currency).
+  /// - `\(...\)`: standard LaTeX inline form. Content cannot span newlines and
+  ///   cannot contain `\)`. Must come before cmark sees it — cmark would otherwise
+  ///   eat `\(` as a backslash-escape for `(`.
+  ///
+  /// Returns the modified string and whether any replacements were made.
+  public func protectingInlineMathMarkers() -> (result: String, hasInlineMath: Bool) {
+    var result = self
+    var hasReplacements = false
+
+    // Pass 1: LaTeX form `\(...\)` — must run first because `$` patterns can't
+    // appear inside `\(...\)` content anyway, and protecting `\(` first means
+    // we don't accidentally match a `$` that lives inside a LaTeX inline.
+    let backslashParenPattern = #"\\\(([^\n]+?)\\\)"#
+    if let regex = try? NSRegularExpression(pattern: backslashParenPattern, options: []) {
+      let nsRange = NSRange(result.startIndex..., in: result)
+      let matches = regex.matches(in: result, options: [], range: nsRange).reversed()
+      for match in matches {
+        guard let fullRange = Range(match.range, in: result),
+              let contentRange = Range(match.range(at: 1), in: result) else { continue }
+        let content = String(result[contentRange])
+        let replacement = "\(inlineMathOpenPlaceholder)\(content)\(inlineMathClosePlaceholder)"
+        result.replaceSubrange(fullRange, with: replacement)
+        hasReplacements = true
+      }
+    }
+
+    // Pass 2: dollar form `$...$`.
+    // - `(?<![\\$])` ensures we're not preceded by `\` (escape) or `$` (display math).
+    // - `[^$\n]+?` content excludes `$` and newlines; backslash commands like
+    //   `\mathbf{u}` are fine because `\` `{` `}` aren't excluded.
+    // - `(?<!\\)` before the closer rejects `\$` as a closer.
+    // - `(?!\$)` ensures we don't match a `$$` closer.
+    let dollarPattern = #"(?<![\\$])\$([^$\n]+?)(?<!\\)\$(?!\$)"#
+    if let regex = try? NSRegularExpression(pattern: dollarPattern, options: []) {
+      let nsRange = NSRange(result.startIndex..., in: result)
+      let matches = regex.matches(in: result, options: [], range: nsRange).reversed()
+      for match in matches {
+        guard let fullRange = Range(match.range, in: result),
+              let contentRange = Range(match.range(at: 1), in: result) else { continue }
+        let content = String(result[contentRange])
+        let replacement = "\(inlineMathOpenPlaceholder)\(content)\(inlineMathClosePlaceholder)"
+        result.replaceSubrange(fullRange, with: replacement)
+        hasReplacements = true
+      }
+    }
+
+    return (result, hasReplacements)
   }
 
   /// Protects highlight syntax (==text==) from cmark parsing by replacing == markers with placeholders.
@@ -349,6 +471,116 @@ public extension InlineNode {
       return self
     }
   }
+}
+
+// MARK: - Inline Math Syntax ($...$ and \(...\))
+
+public extension Array where Element == InlineNode {
+  /// Walks inline nodes and replaces inline-math placeholder pairs (inside
+  /// `.text` children) with `.math(content)` leaves.
+  ///
+  /// Math is a leaf node (no nested formatting), so unlike the highlight pass
+  /// we do not need to span multiple sibling inlines: cmark keeps a contiguous
+  /// run of placeholder-bracketed content inside a single text node because the
+  /// placeholders look like regular characters to cmark.
+  ///
+  /// Inline `.code` content is restored to literal `$...$` so source-code spans
+  /// keep their original appearance.
+  func restoringInlineMath() -> [InlineNode] {
+    self.flatMap { node -> [InlineNode] in
+      switch node {
+      case .text(let content):
+        return processTextForInlineMath(content)
+
+      case .code(let content):
+        // Code spans should display the original math markers, not render math.
+        let restored = content
+          .replacingOccurrences(of: inlineMathOpenPlaceholder, with: "$")
+          .replacingOccurrences(of: inlineMathClosePlaceholder, with: "$")
+        return [.code(restored)]
+
+      case .emphasis(let children):
+        return [.emphasis(children: children.restoringInlineMath())]
+
+      case .strong(let children):
+        return [.strong(children: children.restoringInlineMath())]
+
+      case .strikethrough(let children):
+        return [.strikethrough(children: children.restoringInlineMath())]
+
+      case .highlight(let children):
+        return [.highlight(children: children.restoringInlineMath())]
+
+      case .link(let destination, let children):
+        return [.link(destination: destination, children: children.restoringInlineMath())]
+
+      case .image(let source, let children):
+        return [.image(source: source, children: children.restoringInlineMath())]
+
+      case .criticAddition(let children):
+        return [.criticAddition(children: children.restoringInlineMath())]
+
+      case .criticDeletion(let children):
+        return [.criticDeletion(children: children.restoringInlineMath())]
+
+      case .criticSubstitution(let oldContent, let newContent):
+        return [.criticSubstitution(
+          oldContent: oldContent.restoringInlineMath(),
+          newContent: newContent.restoringInlineMath()
+        )]
+
+      case .criticComment(let children):
+        return [.criticComment(children: children.restoringInlineMath())]
+
+      case .criticHighlight(let children):
+        return [.criticHighlight(children: children.restoringInlineMath())]
+
+      default:
+        return [node]
+      }
+    }
+  }
+}
+
+/// Splits a `.text` node's content on inline-math placeholder pairs, producing
+/// a mix of `.text` and `.math` leaves. Stray opens with no matching close are
+/// emitted as a literal `$` (the original delimiter) so the text reads sensibly.
+private func processTextForInlineMath(_ text: String) -> [InlineNode] {
+  guard text.contains(inlineMathOpenPlaceholder) else {
+    return [.text(text)]
+  }
+
+  var results: [InlineNode] = []
+  var current = text.startIndex
+
+  while current < text.endIndex {
+    guard let openRange = text.range(of: inlineMathOpenPlaceholder, range: current..<text.endIndex) else {
+      // No more open markers — flush the remainder as text.
+      let remaining = String(text[current...])
+      if !remaining.isEmpty {
+        results.append(.text(remaining))
+      }
+      break
+    }
+
+    // Flush any text before the open marker.
+    if current < openRange.lowerBound {
+      results.append(.text(String(text[current..<openRange.lowerBound])))
+    }
+
+    let contentStart = openRange.upperBound
+    if let closeRange = text.range(of: inlineMathClosePlaceholder, range: contentStart..<text.endIndex) {
+      let mathContent = String(text[contentStart..<closeRange.lowerBound])
+      results.append(.math(mathContent))
+      current = closeRange.upperBound
+    } else {
+      // Open marker with no close — restore a literal `$` and continue.
+      results.append(.text("$"))
+      current = openRange.upperBound
+    }
+  }
+
+  return results
 }
 
 // MARK: - Highlight Syntax (==text==)
@@ -1175,17 +1407,17 @@ public extension Array where Element == BlockNode {
         )
 
       case .paragraph(let content):
-        return .paragraph(content: content.restoringHighlightMarkers().restoringCriticMarkup())
+        return .paragraph(content: content.restoringHighlightMarkers().restoringCriticMarkup().restoringInlineMath())
 
       case .heading(let level, let content):
-        return .heading(level: level, content: content.restoringHighlightMarkers().restoringCriticMarkup())
+        return .heading(level: level, content: content.restoringHighlightMarkers().restoringCriticMarkup().restoringInlineMath())
 
       case .table(let columnAlignments, let rows):
         return .table(
           columnAlignments: columnAlignments,
           rows: rows.map { row in
             RawTableRow(cells: row.cells.map { cell in
-              RawTableCell(content: cell.content.restoringHighlightMarkers().restoringCriticMarkup())
+              RawTableCell(content: cell.content.restoringHighlightMarkers().restoringCriticMarkup().restoringInlineMath())
             })
           }
         )

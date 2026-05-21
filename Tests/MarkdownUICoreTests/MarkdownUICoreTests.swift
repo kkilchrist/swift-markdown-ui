@@ -593,4 +593,221 @@ final class MarkdownUICoreTests: XCTestCase {
 
     XCTAssertTrue(html.contains("<code>==highlighted==</code>"), "Expected original highlight syntax in inline code, got: \(html)")
   }
+
+  // MARK: - Inline Math ($...$) Tests
+
+  /// Helper that returns all .math content strings in a block tree.
+  private func allMathContent(in blocks: [BlockNode]) -> [String] {
+    var found: [String] = []
+    func visitInline(_ inline: InlineNode) {
+      switch inline {
+      case .math(let content):
+        found.append(content)
+      case .emphasis(let children),
+           .strong(let children),
+           .strikethrough(let children),
+           .highlight(let children),
+           .criticAddition(let children),
+           .criticDeletion(let children),
+           .criticComment(let children),
+           .criticHighlight(let children):
+        children.forEach(visitInline)
+      case .criticSubstitution(let oldContent, let newContent):
+        oldContent.forEach(visitInline)
+        newContent.forEach(visitInline)
+      case .link(_, let children), .image(_, let children):
+        children.forEach(visitInline)
+      default:
+        break
+      }
+    }
+    func visitBlock(_ block: BlockNode) {
+      switch block {
+      case .blockquote(let children), .callout(_, _, let children):
+        children.forEach(visitBlock)
+      case .bulletedList(_, let items), .numberedList(_, _, let items):
+        items.flatMap(\.children).forEach(visitBlock)
+      case .taskList(_, let items):
+        items.flatMap(\.children).forEach(visitBlock)
+      case .paragraph(let content), .heading(_, let content):
+        content.forEach(visitInline)
+      case .table(_, let rows):
+        rows.flatMap { $0.cells }.flatMap { $0.content }.forEach(visitInline)
+      default:
+        break
+      }
+    }
+    blocks.forEach(visitBlock)
+    return found
+  }
+
+  // MARK: Bug fix tests — math should be parsed in every context
+
+  func testInlineMathDollarSimple() {
+    let blocks = [BlockNode](markdown: "The formula is $E=mc^2$.")
+    XCTAssertEqual(allMathContent(in: blocks), ["E=mc^2"])
+  }
+
+  func testInlineMathDollarWithBackslashCommands() {
+    let markdown = "Variables: $\\mathbf{u}$ is velocity, $\\rho$ is density, $\\mu$ is viscosity."
+    let blocks = [BlockNode](markdown: markdown)
+    XCTAssertEqual(allMathContent(in: blocks), ["\\mathbf{u}", "\\rho", "\\mu"])
+  }
+
+  func testInlineMathDollarManyExpressionsInOneParagraph() {
+    // Reproduces the Bug 3 case — 5+ inline math expressions following a block.
+    let markdown = """
+    $$
+    \\nabla \\cdot \\mathbf{u} = 0
+    $$
+
+    where $\\mathbf{u}$ is velocity, $p$ is pressure, $\\rho$ is density, $\\mu$ is dynamic viscosity, and $\\mathbf{f}$ is body force per unit volume.
+    """
+    let blocks = [BlockNode](markdown: markdown)
+    let mathExpressions = allMathContent(in: blocks)
+    XCTAssertEqual(mathExpressions, ["\\mathbf{u}", "p", "\\rho", "\\mu", "\\mathbf{f}"])
+  }
+
+  func testInlineMathBackslashParenForm() {
+    // Bug 1 (§0.4): `\(...\)` should also produce inline math.
+    let blocks = [BlockNode](markdown: "Inline LaTeX: \\(x^2 + y^2 = z^2\\) is Pythagorean.")
+    XCTAssertEqual(allMathContent(in: blocks), ["x^2 + y^2 = z^2"])
+  }
+
+  func testInlineMathInBlockquote() {
+    // Bug 2 (§0.5): math inside `> ...` blockquotes should still parse.
+    let markdown = "> The identity is $e^{i\\pi}+1=0$."
+    let blocks = [BlockNode](markdown: markdown)
+    XCTAssertEqual(allMathContent(in: blocks), ["e^{i\\pi}+1=0"])
+  }
+
+  func testInlineMathInBulletList() {
+    let markdown = "- The formula $a^2+b^2=c^2$ is Pythagorean."
+    let blocks = [BlockNode](markdown: markdown)
+    XCTAssertEqual(allMathContent(in: blocks), ["a^2+b^2=c^2"])
+  }
+
+  func testInlineMathInCallout() {
+    let markdown = """
+    > [!note]
+    > The formula is $E=mc^2$.
+    """
+    let blocks = [BlockNode](markdown: markdown)
+    XCTAssertEqual(allMathContent(in: blocks), ["E=mc^2"])
+  }
+
+  func testInlineMathPreservedInCodeBlock() {
+    // Math inside code spans should be preserved literally.
+    let markdown = "Use `$x^2$` for inline math."
+    let blocks = [BlockNode](markdown: markdown)
+    XCTAssertEqual(allMathContent(in: blocks), [], "Math markers inside inline code must not produce math nodes")
+    let html = blocks.renderExtendedHTML()
+    XCTAssertTrue(html.contains("<code>$x^2$</code>"), "Expected literal $x^2$ in code, got: \(html)")
+  }
+
+  func testInlineMathPreservedInFencedCodeBlock() {
+    let markdown = """
+    ```
+    Some math: $E=mc^2$
+    ```
+    """
+    let blocks = [BlockNode](markdown: markdown)
+    XCTAssertEqual(allMathContent(in: blocks), [])
+  }
+
+  func testDollarSignNotMath() {
+    // A single $ with no closing $ should remain plain text.
+    let markdown = "Costs $5 today."
+    let blocks = [BlockNode](markdown: markdown)
+    XCTAssertEqual(allMathContent(in: blocks), [])
+  }
+
+  func testTwoCurrencyAmountsInSameLine() {
+    // Currency-heavy sentences are a known false-positive risk for $...$ math.
+    // We accept a small false-positive rate (KaTeX renders text-as-math acceptably)
+    // but call out the behavior so anyone re-tuning the regex can see what changes.
+    // This test documents the current behavior, not a guarantee.
+    let markdown = "It costs $5 and $10 for total."
+    let blocks = [BlockNode](markdown: markdown)
+    // Today the non-greedy regex matches the content between the two `$`s.
+    // Acceptable for now — the host's KaTeX provider renders "5 and " as math text,
+    // which is mildly ugly but reversible by writing currency as `\$5`.
+    let math = allMathContent(in: blocks)
+    XCTAssertTrue(math.isEmpty || math == ["5 and "], "Unexpected math parse: \(math)")
+  }
+
+  func testEscapedDollarNotMath() {
+    // Backslash-escaped `\$` should not start math.
+    let markdown = "Costs \\$5 and \\$10 for total."
+    let blocks = [BlockNode](markdown: markdown)
+    XCTAssertEqual(allMathContent(in: blocks), [])
+  }
+
+  func testMultipleAdjacentInlineMath() {
+    let markdown = "Compare $a^2$ to $b^2$ to $c^2$."
+    let blocks = [BlockNode](markdown: markdown)
+    XCTAssertEqual(allMathContent(in: blocks), ["a^2", "b^2", "c^2"])
+  }
+
+  func testBlockMathBackslashBracket() {
+    // Bug 1 (§0.4): `\[...\]` should produce a math code block.
+    let markdown = """
+    Before.
+
+    \\[
+    x^2 + y^2 = z^2
+    \\]
+
+    After.
+    """
+    let blocks = [BlockNode](markdown: markdown)
+    // Expect a math code block among the blocks.
+    var foundMathBlock = false
+    for block in blocks {
+      if case .codeBlock(let info, let content) = block, info == "math" {
+        XCTAssertTrue(content.contains("x^2 + y^2 = z^2"), "Math content missing, got: \(content)")
+        foundMathBlock = true
+      }
+    }
+    XCTAssertTrue(foundMathBlock, "Expected a fenced math code block, got: \(blocks)")
+  }
+
+  func testBlockMathBackslashBracketSingleLine() {
+    // `\[x^2\]` on its own line is display math too.
+    let markdown = """
+    Before.
+
+    \\[x^2 + y^2 = z^2\\]
+
+    After.
+    """
+    let blocks = [BlockNode](markdown: markdown)
+    var foundMathBlock = false
+    for block in blocks {
+      if case .codeBlock(let info, let content) = block, info == "math" {
+        XCTAssertTrue(content.contains("x^2 + y^2 = z^2"), "Math content missing, got: \(content)")
+        foundMathBlock = true
+      }
+    }
+    XCTAssertTrue(foundMathBlock, "Expected a fenced math code block, got: \(blocks)")
+  }
+
+  func testInlineMathHTMLRendering() {
+    let blocks = [BlockNode](markdown: "Inline $E=mc^2$.")
+    let html = blocks.renderExtendedHTML()
+    XCTAssertTrue(html.contains("math-inline"), "Expected math-inline span in HTML, got: \(html)")
+  }
+
+  /// Lesson from CriticMarkup: parser correctness is not enough — the SwiftUI
+  /// `Markdown` view runs `filterImagesMatching` (and similar) via `rewrite`
+  /// on every render, which can corrupt nodes the bare parser path never
+  /// touches. This test exercises a representative `rewrite` round-trip and
+  /// confirms `.math` survives intact.
+  func testInlineMathSurvivesIdentityRewrite() {
+    let blocks = [BlockNode](markdown: "Energy $E=mc^2$ here.")
+    // Identity rewrite: yields the same node back. If any setter collapses
+    // structure (as `.criticSubstitution.children` once did) this catches it.
+    let rewritten: [BlockNode] = blocks.rewrite { (inline: InlineNode) in [inline] }
+    XCTAssertEqual(allMathContent(in: rewritten), ["E=mc^2"], "Math node lost or mangled by identity rewrite")
+  }
 }

@@ -16,9 +16,19 @@ public extension Array where Element == BlockNode {
     // This allows nested formatting like ==**bold**== to be parsed correctly
     let (withHighlights, _) = withCriticMarkup.protectingHighlightMarkers()
 
+    // Preprocess: convert `\[...\]` display-math fences to ```math fenced code
+    // blocks so they flow through the host's code-block provider. Multi-line
+    // only — single-line `\[...\]` becomes inline math in the next step.
+    let withBackslashBracket = withHighlights.convertingBackslashBracketBlockMath()
+
+    // Preprocess: protect inline math (`$...$` and `\(...\)`) so cmark doesn't
+    // strip the backslash-paren form as escapes. Placeholders are converted
+    // back into `.math(content)` leaves in `applyObsidianExtensions()`.
+    let (withInlineMath, _) = withBackslashBracket.protectingInlineMathMarkers()
+
     // Preprocess: protect image dimension syntax from table parser
     // Replace | inside ![alt|dimensions](url) with a placeholder before cmark parsing
-    let (preprocessed, hasImageDimensions) = withHighlights.protectingImageDimensions()
+    let (preprocessed, hasImageDimensions) = withInlineMath.protectingImageDimensions()
 
     let blocks = UnsafeNode.parseMarkdown(preprocessed) { document in
       document.children.compactMap(BlockNode.init(unsafeNode:))
