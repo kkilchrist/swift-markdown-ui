@@ -883,4 +883,83 @@ final class MarkdownUICoreTests: XCTestCase {
     }
     XCTAssertTrue(hasBlockMath, "§0.4 \\[...\\] block math missing")
   }
+
+  // MARK: - Video Block Tests
+
+  func testLocalVideoPromotion() {
+    let blocks = [BlockNode](markdown: "![](demo.mp4)")
+    XCTAssertEqual(blocks.count, 1)
+    guard case .video(let source, let width, let height) = blocks[0] else {
+      XCTFail("Expected .video block, got \(blocks[0])")
+      return
+    }
+    XCTAssertEqual(source, "demo.mp4")
+    XCTAssertNil(width)
+    XCTAssertNil(height)
+  }
+
+  func testRemoteVideoPromotion() {
+    let blocks = [BlockNode](markdown: "![Demo](https://example.com/clip.mp4)")
+    XCTAssertEqual(blocks.count, 1)
+    guard case .video(let source, _, _) = blocks[0] else {
+      XCTFail("Expected .video block, got \(blocks[0])")
+      return
+    }
+    XCTAssertEqual(source, "https://example.com/clip.mp4")
+  }
+
+  func testVideoSizingWidthOnly() {
+    // Wikilink ![[demo.mov|640]] is rewritten by the host to ![|640](demo.mov)
+    // before reaching this parser; we exercise that resulting shape.
+    let blocks = [BlockNode](markdown: "![|640](demo.mov)")
+    XCTAssertEqual(blocks.count, 1)
+    guard case .video(let source, let width, let height) = blocks[0] else {
+      XCTFail("Expected .video block, got \(blocks[0])")
+      return
+    }
+    XCTAssertEqual(source, "demo.mov")
+    XCTAssertEqual(width, 640)
+    XCTAssertNil(height)
+  }
+
+  func testVideoSizingWidthAndHeight() {
+    let blocks = [BlockNode](markdown: "![|640x360](demo.webm)")
+    XCTAssertEqual(blocks.count, 1)
+    guard case .video(_, let width, let height) = blocks[0] else {
+      XCTFail("Expected .video block")
+      return
+    }
+    XCTAssertEqual(width, 640)
+    XCTAssertEqual(height, 360)
+  }
+
+  func testVideoExtensionAllowlistIsCaseInsensitive() {
+    for ext in ["mp4", "MP4", "Mov", "m4v", "WEBM"] {
+      let blocks = [BlockNode](markdown: "![](clip.\(ext))")
+      guard case .video = blocks[0] else {
+        XCTFail("Expected .video for .\(ext)")
+        continue
+      }
+    }
+  }
+
+  func testNonVideoImageStaysAsImage() {
+    let blocks = [BlockNode](markdown: "![alt](photo.png)")
+    XCTAssertEqual(blocks.count, 1)
+    guard case .paragraph(let content) = blocks[0],
+          case .image = content.first else {
+      XCTFail("Expected paragraph with image, got \(blocks[0])")
+      return
+    }
+  }
+
+  func testVideoHTMLOutput() {
+    let blocks = [BlockNode](markdown: "![|640x360](demo.mp4)")
+    let html = blocks.renderExtendedHTML()
+    XCTAssertTrue(html.contains("<video"))
+    XCTAssertTrue(html.contains("controls"))
+    XCTAssertTrue(html.contains("src=\"demo.mp4\""))
+    XCTAssertTrue(html.contains("width=\"640\""))
+    XCTAssertTrue(html.contains("height=\"360\""))
+  }
 }

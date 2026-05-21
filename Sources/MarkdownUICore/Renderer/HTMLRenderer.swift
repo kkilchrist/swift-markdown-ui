@@ -128,6 +128,13 @@ public extension BlockNode {
 
     case .thematicBreak:
       return "<hr>"
+
+    case .video(let source, let width, let height):
+      let escapedSrc = source.htmlEscaped
+      var attrs = ""
+      if let width { attrs += " width=\"\(width)\"" }
+      if let height { attrs += " height=\"\(height)\"" }
+      return "<video controls src=\"\(escapedSrc)\"\(attrs)></video>"
     }
   }
 

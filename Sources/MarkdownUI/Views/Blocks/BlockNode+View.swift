@@ -56,6 +56,8 @@ private struct DirectionalBlockView: View {
       }
     case .thematicBreak:
       ThematicBreakView()
+    case .video(let source, let width, let height):
+      VideoBlockView(source: source, width: width, height: height)
     }
   }
 }

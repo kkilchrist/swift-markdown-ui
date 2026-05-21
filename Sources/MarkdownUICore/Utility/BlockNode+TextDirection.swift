@@ -34,6 +34,8 @@ public extension BlockNode {
       return rows.flatMap(\.cells).map { $0.content.renderPlainText() }.joined(separator: " ")
     case .thematicBreak:
       return ""
+    case .video(let source, _, _):
+      return source
     }
   }
 }

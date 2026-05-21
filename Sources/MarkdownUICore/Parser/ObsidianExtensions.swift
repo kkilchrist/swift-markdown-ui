@@ -1375,6 +1375,64 @@ private func parseGitHubCallout(inlines: [InlineNode], children: [BlockNode]) ->
   return .callout(type: calloutType, title: nil, children: modifiedChildren)
 }
 
+// MARK: - Video Block Extraction
+
+/// Extensions that route an image-syntax reference to a `.video` block instead
+/// of a `.image` inline. Case-insensitive.
+private let videoExtensions: Set<String> = ["mp4", "mov", "m4v", "webm"]
+
+/// Returns true if `source` has a path extension that we render as a video.
+private func isVideoSource(_ source: String) -> Bool {
+  // Strip query/fragment before extension check so URLs like
+  // "https://host/clip.mp4?token=..." still classify as video.
+  let pathOnly: String = {
+    if let queryIdx = source.firstIndex(where: { $0 == "?" || $0 == "#" }) {
+      return String(source[..<queryIdx])
+    }
+    return source
+  }()
+  guard let dotIdx = pathOnly.lastIndex(of: ".") else { return false }
+  let ext = pathOnly[pathOnly.index(after: dotIdx)...].lowercased()
+  return videoExtensions.contains(ext)
+}
+
+/// Parses `|W` or `|WxH` dimension hints out of the image alt text.
+/// Runs before `restoringImageDimensions()` swaps placeholders back, so both
+/// the literal `|` and the U+E000 placeholder must be accepted as separators.
+private func parseVideoDimensions(from alt: String) -> (width: Int?, height: Int?) {
+  let normalized = alt.replacingOccurrences(of: imageDimensionPlaceholder, with: "|")
+  guard let pipeIdx = normalized.lastIndex(of: "|") else { return (nil, nil) }
+  let spec = normalized[normalized.index(after: pipeIdx)...]
+  if let xIdx = spec.firstIndex(of: "x") {
+    let w = Int(spec[..<xIdx])
+    let h = Int(spec[spec.index(after: xIdx)...])
+    return (w, h)
+  }
+  return (Int(spec), nil)
+}
+
+public extension Array where Element == BlockNode {
+  /// Promotes paragraphs whose sole image points at a video file into `.video`
+  /// blocks. We do not touch images embedded inside text — only the standalone
+  /// `![alt](video.mp4)` (or wikilink-rewritten) form.
+  func applyVideoExtension() -> [BlockNode] {
+    self.map { block -> BlockNode in
+      if case .paragraph(let inlines) = block,
+         inlines.count == 1,
+         case .image(let source, let children) = inlines[0],
+         isVideoSource(source) {
+        let altText = children.map { node -> String in
+          if case .text(let t) = node { return t }
+          return ""
+        }.joined()
+        let (w, h) = parseVideoDimensions(from: altText)
+        return .video(source: source, width: w, height: h)
+      }
+      return block
+    }
+  }
+}
+
 // MARK: - Combined Extension Application
 
 public extension Array where Element == BlockNode {
@@ -1383,6 +1441,7 @@ public extension Array where Element == BlockNode {
     self
       .applyCalloutSyntax()
       .restoringInlineMarkersInBlocks()
+      .applyVideoExtension()
   }
 
   /// Restores highlight and CriticMarkup markers in all inline content within blocks.
@@ -1441,6 +1500,9 @@ public extension Array where Element == BlockNode {
         return .htmlBlock(content: content.restoringCriticMarkupInCodeBlock())
 
       case .thematicBreak:
+        return block
+
+      case .video:
         return block
       }
     }

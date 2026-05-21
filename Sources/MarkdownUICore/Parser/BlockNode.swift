@@ -12,6 +12,7 @@ public enum BlockNode: Hashable {
   case heading(level: Int, content: [InlineNode])
   case table(columnAlignments: [RawTableColumnAlignment], rows: [RawTableRow])
   case thematicBreak
+  case video(source: String, width: Int?, height: Int?)
 }
 
 public extension BlockNode {

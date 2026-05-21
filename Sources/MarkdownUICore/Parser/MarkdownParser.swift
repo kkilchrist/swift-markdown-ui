@@ -381,6 +381,15 @@ public extension UnsafeNode {
     case .thematicBreak:
       guard let node = cmark_node_new(CMARK_NODE_THEMATIC_BREAK) else { return nil }
       return node
+    case .video(let source, let width, let height):
+      // Round-trip through cmark as an HTML block. Used only by commonmark/HTML
+      // renderers driven by cmark; the AST-aware renderers consume .video directly.
+      guard let node = cmark_node_new(CMARK_NODE_HTML_BLOCK) else { return nil }
+      var attrs = ""
+      if let width { attrs += " width=\"\(width)\"" }
+      if let height { attrs += " height=\"\(height)\"" }
+      cmark_node_set_literal(node, "<video controls src=\"\(source)\"\(attrs)></video>")
+      return node
     }
   }
 
