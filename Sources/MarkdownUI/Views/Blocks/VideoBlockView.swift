@@ -31,17 +31,22 @@ struct VideoBlockView: View {
   }
 
   private var resolvedURL: URL? {
+    // Pass through full URLs with a scheme (http/https/file/data) unchanged.
     if let url = URL(string: source), url.scheme != nil {
       return url
     }
     guard let baseURL = imageBaseURL else { return nil }
-    // Try as-is first — handles already-percent-encoded sources like "Screen%20Recording.mov".
-    // Only encode as a fallback for raw strings with literal spaces, which URL(string:) rejects.
-    if let url = URL(string: source, relativeTo: baseURL) {
-      return url.absoluteURL
+
+    // Markdown sources are conceptually URL-encoded but AVFoundation file lookup
+    // expects literal filesystem paths — feeding it "file:///…/Screen%20Recording.mov"
+    // sometimes fails where "/…/Screen Recording.mov" succeeds. Decode the source
+    // and use URL(fileURLWithPath:), which is the canonical file-URL constructor.
+    let decodedPath = source.removingPercentEncoding ?? source
+    if decodedPath.hasPrefix("/") {
+      return URL(fileURLWithPath: decodedPath)
     }
-    let encoded = source.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? source
-    return URL(string: encoded, relativeTo: baseURL)?.absoluteURL
+    let documentDir = baseURL.deletingLastPathComponent()
+    return URL(fileURLWithPath: decodedPath, relativeTo: documentDir).absoluteURL
   }
 }
 
