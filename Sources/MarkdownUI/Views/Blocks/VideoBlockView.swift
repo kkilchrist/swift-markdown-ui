@@ -35,6 +35,11 @@ struct VideoBlockView: View {
       return url
     }
     guard let baseURL = imageBaseURL else { return nil }
+    // Try as-is first — handles already-percent-encoded sources like "Screen%20Recording.mov".
+    // Only encode as a fallback for raw strings with literal spaces, which URL(string:) rejects.
+    if let url = URL(string: source, relativeTo: baseURL) {
+      return url.absoluteURL
+    }
     let encoded = source.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? source
     return URL(string: encoded, relativeTo: baseURL)?.absoluteURL
   }
@@ -88,10 +93,11 @@ private struct AVPlayerViewRepresentable: NSViewRepresentable {
   }
 
   func updateNSView(_ nsView: AVPlayerView, context: Context) {
-    let currentURL = (nsView.player?.currentItem?.asset as? AVURLAsset)?.url
-    if currentURL != url {
-      nsView.player = AVPlayer(url: url)
-    }
+    // No-op. url is immutable per view instance — when the URL changes
+    // SwiftUI tears this view down and calls makeNSView() again. Previously
+    // we compared currentItem.asset.url here, but AVPlayer normalizes the
+    // stored URL, so the comparison sometimes flagged identical URLs as
+    // different and reset the player mid-load each time @State updated.
   }
 }
 #endif
